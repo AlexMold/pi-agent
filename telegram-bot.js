@@ -2,13 +2,15 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const path = require("path");
 const fs = require("fs");
+const { RoutingEngine } = require("./lib/model-router");
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_USER_ID = parseInt(process.env.ALLOWED_USER_ID, 10);
 const WORK_DIR = process.cwd();
 const UPLOADS_DIR = path.join(WORK_DIR, "uploads");
 
-let CURRENT_MODEL = process.env.PI_MODEL || "google-antigravity/gemini-3.1-pro-high";
+let CURRENT_MODEL = process.env.PI_MODEL || "google-antigravity/gemini-3-flash";
+let AUTO_ROUTING = true;
 
 const AVAILABLE_MODELS = [
   "google-antigravity/gemini-3.1-pro-high",
@@ -28,6 +30,29 @@ const AVAILABLE_MODELS = [
   "ollama/gemma4:31b",
   "ollama/gemma4:latest",
 ];
+
+// Initialize Routing Engine
+const router = new RoutingEngine();
+router.addRoutes([
+  {
+    id: "accounting",
+    description: "Financial analysis, invoices, taxes, and complex accounting tasks",
+    keywords: ["инвойс", "счет", "бухгалтерия", "отчет", "налоги", "invoice", "tax", "accounting"],
+    model: "google-antigravity/gemini-3.1-pro-high"
+  },
+  {
+    id: "search",
+    description: "Web search, finding information, prices, and news",
+    keywords: ["найди", "поиск", "гугл", "google", "search", "сколько стоит", "find", "price"],
+    model: "google-antigravity/gemini-3-flash"
+  },
+  {
+    id: "chat",
+    description: "General conversation, greetings, and simple questions",
+    keywords: ["привет", "как дела", "кто ты", "hello", "hi", "who are you"],
+    model: "ollama/gemma4:31b"
+  }
+]);
 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -143,6 +168,7 @@ bot.on("message", async (msg) => {
           "*Команды:*\n" +
           "/models - список доступных моделей\n" +
           "/model <номер или имя> - сменить текущую модель\n" +
+          "/autoroute <on/off> - включить/выключить авто-роутинг\n" +
           "/status - текущие настройки",
         { parse_mode: "Markdown" }
       );
@@ -182,11 +208,19 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    if (text.startsWith("/autoroute ")) {
+      const val = text.replace("/autoroute ", "").trim().toLowerCase();
+      AUTO_ROUTING = val === "on" || val === "true" || val === "1";
+      await bot.sendMessage(chatId, `🤖 Авто-роутинг: ${AUTO_ROUTING ? "✅ ВКЛ" : "❌ ВЫКЛ"}`);
+      return;
+    }
+
     if (text === "/status") {
       await bot.sendMessage(
         chatId,
         `⚙️ *Текущий статус:*\n\n` +
           `• Модель: \`${CURRENT_MODEL}\`\n` +
+          `• Авто-роутинг: \`${AUTO_ROUTING ? "ВКЛ" : "ВЫКЛ"}\`\n` +
           `• Папка: \`${WORK_DIR}\``,
         { parse_mode: "Markdown" }
       );
@@ -196,9 +230,9 @@ bot.on("message", async (msg) => {
 
   let prompt = msg.text || msg.caption || "Опиши это изображение";
   let activeModel = CURRENT_MODEL;
+  let routingInfo = "";
 
-  // Позволяем указать модель прямо в сообщении (на лету)
-  // Формат: "модель: имя_модели Промпт" или "model: имя_модели Промпт"
+  // 1. Проверяем ручной выбор модели через префикс
   const modelMatch = prompt.match(/^(?:model|модель):\s*([^\s\n]+)\s*([\s\S]*)$/i);
   if (modelMatch) {
     const modelInput = modelMatch[1];
@@ -211,7 +245,20 @@ bot.on("message", async (msg) => {
     }
     
     prompt = modelMatch[2].trim() || "Опиши это изображение";
-    log(`[ON-THE-FLY] Использование модели: ${activeModel}`);
+    log(`[MANUAL] Использование модели: ${activeModel}`);
+  } 
+  // 2. Если ручного выбора нет и включен авто-роутинг, используем RoutingEngine
+  else if (AUTO_ROUTING && msg.text) {
+    try {
+      const result = await router.route(msg.text);
+      if (result.winningRoute && result.winningRoute.model) {
+        activeModel = result.winningRoute.model;
+        routingInfo = `[Route: ${result.winningRoute.id}] `;
+        log(`[AUTO-ROUTE] Query: "${msg.text.substring(0, 50)}..." -> Route: ${result.winningRoute.id} (${activeModel})`);
+      }
+    } catch (err) {
+      log(`[ROUTE ERROR] ${err.message}`);
+    }
   }
 
   let imagePath = null;
