@@ -25,6 +25,8 @@ const AVAILABLE_MODELS = [
   "google-antigravity/o3-preview",
   "google-antigravity/deepseek-r2-thinking",
   "google-antigravity/llama-4-405b",
+  "ollama/gemma4:31b",
+  "ollama/gemma4:latest",
 ];
 
 if (!fs.existsSync(UPLOADS_DIR)) {
