@@ -10,7 +10,7 @@ const WORK_DIR = process.cwd();
 const UPLOADS_DIR = path.join(WORK_DIR, "uploads");
 
 let CURRENT_MODEL = process.env.PI_MODEL || "google-antigravity/gemini-3-flash";
-let AUTO_ROUTING = false;
+let AUTO_ROUTING = true;
 
 const AVAILABLE_MODELS = [
   "google-antigravity/gemini-3.1-pro-high",
@@ -36,22 +36,41 @@ const router = new RoutingEngine();
 router.addRoutes([
   {
     id: "accounting",
-    description: "Financial analysis, invoices, taxes, and complex accounting tasks",
-    keywords: ["инвойс", "счет", "бухгалтерия", "отчет", "налоги", "invoice", "tax", "accounting"],
-    model: "google-antigravity/gemini-3.1-pro-high"
+    description:
+      "Financial analysis, invoices, taxes, and complex accounting tasks",
+    keywords: [
+      "инвойс",
+      "счет",
+      "бухгалтерия",
+      "отчет",
+      "налоги",
+      "invoice",
+      "tax",
+      "accounting",
+    ],
+    model: "google-antigravity/gemini-3.1-pro-high",
   },
   {
     id: "search",
     description: "Web search, finding information, prices, and news",
-    keywords: ["найди", "поиск", "гугл", "google", "search", "сколько стоит", "find", "price"],
-    model: "google-antigravity/gemini-3-flash"
+    keywords: [
+      "найди",
+      "поиск",
+      "гугл",
+      "google",
+      "search",
+      "сколько стоит",
+      "find",
+      "price",
+    ],
+    model: "google-antigravity/gemini-3-flash",
   },
   {
     id: "chat",
     description: "General conversation, greetings, and simple questions",
     keywords: ["привет", "как дела", "кто ты", "hello", "hi", "who are you"],
-    model: "ollama/gemma4:31b"
-  }
+    model: "ollama/gemma4:31b",
+  },
 ]);
 
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -61,7 +80,8 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 const bot = new TelegramBot(token, { polling: false });
 
 // Очищаем вебхуки и старые обновления перед стартом, чтобы избежать 409 Conflict
-bot.deleteWebHook({ drop_pending_updates: true })
+bot
+  .deleteWebHook({ drop_pending_updates: true })
   .then(() => {
     bot.startPolling();
     log(`🔒 Бот запущен. Рабочая папка: ${WORK_DIR}`);
@@ -170,14 +190,14 @@ bot.on("message", async (msg) => {
           "/model <номер или имя> - сменить текущую модель\n" +
           "/autoroute <on/off> - включить/выключить авто-роутинг\n" +
           "/status - текущие настройки",
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown" },
       );
       return;
     }
 
     if (text === "/models") {
       const list = AVAILABLE_MODELS.map((m, i) =>
-        m === CURRENT_MODEL ? `✅ ${i + 1}. ${m}` : `▫️ ${i + 1}. ${m}`
+        m === CURRENT_MODEL ? `✅ ${i + 1}. ${m}` : `▫️ ${i + 1}. ${m}`,
       ).join("\n");
       await bot.sendMessage(chatId, `📊 *Доступные модели:*\n\n${list}`, {
         parse_mode: "Markdown",
@@ -196,14 +216,21 @@ bot.on("message", async (msg) => {
         if (AVAILABLE_MODELS.includes(input)) {
           CURRENT_MODEL = input;
         } else {
-          await bot.sendMessage(chatId, `⚠️ Неверный индекс или имя модели. Используйте /models для списка.`);
+          await bot.sendMessage(
+            chatId,
+            `⚠️ Неверный индекс или имя модели. Используйте /models для списка.`,
+          );
           return;
         }
       }
 
-      await bot.sendMessage(chatId, `🔄 Модель изменена на: \`${CURRENT_MODEL}\``, {
-        parse_mode: "Markdown",
-      });
+      await bot.sendMessage(
+        chatId,
+        `🔄 Модель изменена на: \`${CURRENT_MODEL}\``,
+        {
+          parse_mode: "Markdown",
+        },
+      );
       log(`[CONFIG] Модель изменена на: ${CURRENT_MODEL}`);
       return;
     }
@@ -211,7 +238,10 @@ bot.on("message", async (msg) => {
     if (text.startsWith("/autoroute ")) {
       const val = text.replace("/autoroute ", "").trim().toLowerCase();
       AUTO_ROUTING = val === "on" || val === "true" || val === "1";
-      await bot.sendMessage(chatId, `🤖 Авто-роутинг: ${AUTO_ROUTING ? "✅ ВКЛ" : "❌ ВЫКЛ"}`);
+      await bot.sendMessage(
+        chatId,
+        `🤖 Авто-роутинг: ${AUTO_ROUTING ? "✅ ВКЛ" : "❌ ВЫКЛ"}`,
+      );
       return;
     }
 
@@ -222,7 +252,7 @@ bot.on("message", async (msg) => {
           `• Модель: \`${CURRENT_MODEL}\`\n` +
           `• Авто-роутинг: \`${AUTO_ROUTING ? "ВКЛ" : "ВЫКЛ"}\`\n` +
           `• Папка: \`${WORK_DIR}\``,
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown" },
       );
       return;
     }
@@ -233,20 +263,22 @@ bot.on("message", async (msg) => {
   let routingInfo = "";
 
   // 1. Проверяем ручной выбор модели через префикс
-  const modelMatch = prompt.match(/^(?:model|модель):\s*([^\s\n]+)\s*([\s\S]*)$/i);
+  const modelMatch = prompt.match(
+    /^(?:model|модель):\s*([^\s\n]+)\s*([\s\S]*)$/i,
+  );
   if (modelMatch) {
     const modelInput = modelMatch[1];
     const index = parseInt(modelInput, 10);
-    
+
     if (!isNaN(index) && index > 0 && index <= AVAILABLE_MODELS.length) {
       activeModel = AVAILABLE_MODELS[index - 1];
     } else {
       activeModel = modelInput;
     }
-    
+
     prompt = modelMatch[2].trim() || "Опиши это изображение";
     log(`[MANUAL] Использование модели: ${activeModel}`);
-  } 
+  }
   // 2. Если ручного выбора нет и включен авто-роутинг, используем RoutingEngine
   else if (AUTO_ROUTING && msg.text) {
     try {
@@ -254,7 +286,9 @@ bot.on("message", async (msg) => {
       if (result.winningRoute && result.winningRoute.model) {
         activeModel = result.winningRoute.model;
         routingInfo = `[Route: ${result.winningRoute.id}] `;
-        log(`[AUTO-ROUTE] Query: "${msg.text.substring(0, 50)}..." -> Route: ${result.winningRoute.id} (${activeModel})`);
+        log(
+          `[AUTO-ROUTE] Query: "${msg.text.substring(0, 50)}..." -> Route: ${result.winningRoute.id} (${activeModel})`,
+        );
       }
     } catch (err) {
       log(`[ROUTE ERROR] ${err.message}`);
@@ -278,7 +312,7 @@ bot.on("message", async (msg) => {
       try {
         await bot.sendMessage(
           chatId,
-          `⚠️ Не удалось скачать изображение: ${err.message}`
+          `⚠️ Не удалось скачать изображение: ${err.message}`,
         );
       } catch (e) {}
       return;
@@ -303,7 +337,7 @@ bot.on("message", async (msg) => {
       try {
         await bot.sendMessage(
           chatId,
-          "⚠️ Pi не вернул текстового ответа. Попробуйте переформулировать запрос."
+          "⚠️ Pi не вернул текстового ответа. Попробуйте переформулировать запрос.",
         );
       } catch (e) {}
       return;
@@ -323,7 +357,7 @@ bot.on("message", async (msg) => {
       await bot.sendMessage(chatId, `⚠️ Ошибка агента: ${err.message}`);
     } catch (sendErr) {
       log(
-        `[CRITICAL ERROR] Не удалось отправить сообщение об ошибке: ${sendErr.message}`
+        `[CRITICAL ERROR] Не удалось отправить сообщение об ошибке: ${sendErr.message}`,
       );
     }
   } finally {
