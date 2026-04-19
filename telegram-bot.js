@@ -13,10 +13,18 @@ let CURRENT_MODEL = process.env.PI_MODEL || "google-antigravity/gemini-3.1-pro-h
 const AVAILABLE_MODELS = [
   "google-antigravity/gemini-3.1-pro-high",
   "google-antigravity/gemini-3.1-pro-low",
+  "google-antigravity/gemini-3.1-ultra",
+  "google-antigravity/gemini-3.1-flash-high",
   "google-antigravity/gemini-3-flash",
   "google-antigravity/claude-sonnet-4-5",
   "google-antigravity/claude-sonnet-4-5-thinking",
   "google-antigravity/claude-opus-4-6-thinking",
+  "google-antigravity/gpt-5-pro",
+  "google-antigravity/gpt-5-mini",
+  "google-antigravity/o3-mini",
+  "google-antigravity/o3-preview",
+  "google-antigravity/deepseek-r2-thinking",
+  "google-antigravity/llama-4-405b",
 ];
 
 if (!fs.existsSync(UPLOADS_DIR)) {
