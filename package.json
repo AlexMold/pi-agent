@@ -1,0 +1,36 @@
+{
+  "name": "agent-exp-accounting",
+  "version": "1.0.0",
+  "description": "",
+  "main": "telegram-bot.js",
+  "scripts": {
+    "start": "node telegram-bot.js",
+    "dev": "nodemon telegram-bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "nodemonConfig": {
+    "ignore": [
+      "uploads/*",
+      "output/*",
+      "*.log",
+      "*.html",
+      "*.json",
+      "*.pdf",
+      "*.pages",
+      "*.png",
+      "*.txt"
+    ]
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "node-pty": "^1.1.0",
+    "node-telegram-bot-api": "^0.67.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

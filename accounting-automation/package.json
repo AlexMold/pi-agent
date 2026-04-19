@@ -1,0 +1,17 @@
+{
+  "name": "accounting-automation",
+  "version": "1.0.0",
+  "description": "Playwright automation for bank and tax tasks",
+  "main": "index.js",
+  "dependencies": {
+    "@opendataloader/pdf": "^2.2.1",
+    "dotenv": "latest",
+    "pdf-parse": "latest",
+    "playwright": "latest",
+    "playwright-extra": "latest",
+    "puppeteer-extra-plugin-stealth": "latest"
+  },
+  "scripts": {
+    "test": "playwright test"
+  }
+}
