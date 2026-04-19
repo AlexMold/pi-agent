@@ -10,7 +10,7 @@ const WORK_DIR = process.cwd();
 const UPLOADS_DIR = path.join(WORK_DIR, "uploads");
 
 let CURRENT_MODEL = process.env.PI_MODEL || "google-antigravity/gemini-3-flash";
-let AUTO_ROUTING = true;
+let AUTO_ROUTING = false;
 
 const AVAILABLE_MODELS = [
   "google-antigravity/gemini-3.1-pro-high",
