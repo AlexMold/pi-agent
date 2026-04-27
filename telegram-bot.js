@@ -1,9 +1,12 @@
 require("dotenv").config();
+const MarkdownIt = require("markdown-it");
 const TelegramBot = require("node-telegram-bot-api");
 const path = require("path");
 const fs = require("fs");
 const { RoutingEngine } = require("./lib/model-router");
 const { ROUTES } = require("./lib/routes");
+
+const mdIt = new MarkdownIt();
 
 // === Wiki Context System ===
 const wikiLogger = require("./wiki/logger");
@@ -53,6 +56,12 @@ function getTimestamp() {
 
 function log(message) {
   console.log(`[${getTimestamp()}] ${message}`);
+}
+
+// Простой "парсер", превращающий Markdown в Plain Text для безопасной отправки в Telegram
+function stripMarkdown(text) {
+  // Convert Markdown to HTML then strip HTML tags to get plain text
+  return mdIt.render(text).replace(/<[^>]+>/g, '').trim();
 }
 
 // Используем spawn вместо exec, так как это стабильнее для Pi в не-интерактивном режиме
@@ -137,7 +146,7 @@ bot.on("message", async (msg) => {
     await bot.sendMessage(
       chatId,
       `⛔ Доступ запрещен. Ваш ID: \`${userId}\`. Разрешен только ID: \`${ALLOWED_USER_ID}\``,
-      { parse_mode: "Markdown" }
+      { parse_mode: "MarkdownV2" }
     );
     return;
   }
@@ -167,7 +176,7 @@ bot.on("message", async (msg) => {
         m === CURRENT_MODEL ? `✅ ${i + 1}. ${m}` : `▫️ ${i + 1}. ${m}`
       ).join("\n");
       await bot.sendMessage(chatId, `📊 *Доступные модели:*\n\n${list}`, {
-        parse_mode: "Markdown"
+        parse_mode: "MarkdownV2"
       });
       return;
     }
@@ -189,7 +198,7 @@ bot.on("message", async (msg) => {
       }
 
       await bot.sendMessage(chatId, `🔄 Модель изменена на: \`${CURRENT_MODEL}\``, {
-        parse_mode: "Markdown"
+        parse_mode: "MarkdownV2"
       });
       log(`[CONFIG] Модель изменена на: ${CURRENT_MODEL}`);
       return;
@@ -255,7 +264,7 @@ bot.on("message", async (msg) => {
       if (history && history.length > 0) {
         // Truncate to Telegram limit
         const trimmed = history.length > 3800 ? history.substring(0, 3800) + "\n\n[... truncated ...]" : history;
-        await bot.sendMessage(chatId, `📜 *Recent Memory:*\n\n${trimmed}`, { parse_mode: "Markdown" });
+        await bot.sendMessage(chatId, `📜 *Recent Memory:*\n\n${trimmed}`, { parse_mode: "MarkdownV2" });
       } else {
         await bot.sendMessage(chatId, "📜 Нет сохраненной истории. Команды пока не сохраняют память.");
       }
@@ -367,7 +376,8 @@ bot.on("message", async (msg) => {
       const ctx = wikiContext.assembleContext(chatId);
       if (ctx.context && ctx.context.trim().length > 10) {
         // Insert context before the user query
-        fullPrompt = `---\nContext Wiki\n${ctx.context}\n---\n\n${prompt}`;
+        // Use &lt;context&gt; tags instead of "---" to avoid CLI argument parser treating our prompt as an unknown flag.
+        fullPrompt = `<context>\n${ctx.context}\n</context>\n\n${prompt}`;
         log(
           `[WIKI] Context assembled: ${ctx.tokens} tokens, active=${ctx.hasActiveSession}, history=${ctx.hasHistory}`
         );
@@ -393,8 +403,9 @@ bot.on("message", async (msg) => {
 
     // Разбиваем длинный ответ на части (лимит Telegram — 4096 символов)
     const chunks = response.match(/[\s\S]{1,4000}/g) || [response];
+    // Превращаем Markdown в Plain Text, чтобы гарантированно избежать ошибок парсинга Telegram
     for (const chunk of chunks) {
-      await bot.sendMessage(chatId, chunk);
+      await bot.sendMessage(chatId, stripMarkdown(chunk));
     }
   } catch (err) {
     if (typeof typingInterval !== "undefined") clearInterval(typingInterval);
