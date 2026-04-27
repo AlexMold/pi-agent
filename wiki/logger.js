@@ -34,7 +34,7 @@ function logMessage(chatId, username, userType, message, extra = "") {
 
   // If session file doesn't exist, create with header
   if (!fs.existsSync(sessionFile)) {
-    const newSession = `# Session: ${chatId}\n`;
+    let newSession = `# Session: ${chatId}\n`;
     newSession += `Username: ${username}\n`;
     newSession += `Session start: ${dateHeader}\n`;
     newSession += `Last active: ${timestamp}\n\n`;

@@ -418,7 +418,13 @@ bot.on("message", async (msg) => {
 
 // Глобальные обработчики для предотвращения падения бота
 process.on("unhandledRejection", (reason, promise) => {
-  log(`Unhandled Rejection at: ${promise} reason: ${reason}`);
+  log(`Unhandled Rejection at: ${promise} reason: ${reason}
+${reason?.stack || ""}`);
+});
+
+process.on("uncaughtException", (err) => {
+  log(`Uncaught Exception: ${err}
+${err.stack || ""}`);
 });
 
 process.on("uncaughtException", (err) => {
