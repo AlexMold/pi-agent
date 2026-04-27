@@ -25,7 +25,7 @@ export class RoutingEngine {
   private routerModel: string;
 
   constructor(options: { routerModel?: string } = {}) {
-    this.routerModel = options.routerModel || "google-antigravity/gemini-3-flash";
+    this.routerModel = options.routerModel || "ollama/gemma4:latest";
   }
 
   addRoute(route: Route) {

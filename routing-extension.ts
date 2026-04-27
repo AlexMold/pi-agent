@@ -4,7 +4,7 @@
 
 import { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { RoutingEngine, Route } from "./lib/model-router.js";
-import { Type } from "@sinclair/typebox";
+import { Type, StringEnum } from "@mariozechner/pi-ai";
 
 const DEFAULT_ROUTES: Route[] = [
   {
@@ -12,27 +12,91 @@ const DEFAULT_ROUTES: Route[] = [
     name: "Simple Task",
     description: "Basic queries, file listing, simple text edits, or greetings.",
     keywords: ["ls", "list", "hello", "hi", "how are you"],
-    model: "google-antigravity/gemini-3-flash"
+    model: "ollama/gemma4:latest"
   },
   {
     id: "complex_task",
     name: "Complex Task",
     description: "Tasks requiring deep analysis, complex coding, or multi-step reasoning.",
     keywords: ["analyze", "implement", "fix", "refactor"],
-    model: "google-antigravity/gemini-3.1-pro-high"
+    model: "ollama/qwen3.6:35b-a3b-q8_0"
   },
   {
     id: "vision_task",
     name: "Vision Task",
     description: "Tasks involving images, screenshots, or UI analysis.",
     keywords: ["image", "screenshot", "look at", "describe"],
-    model: "google-antigravity/gemini-3.1-pro-high"
+    model: "ollama/gemma4:31b"
   }
 ];
 
 export default function(pi: ExtensionAPI) {
   const engine = new RoutingEngine();
   engine.addRoutes(DEFAULT_ROUTES);
+
+  // --- Google API Compatibility Fix (TP-106 / Google SDK strictness) ---
+  pi.on("session_start", () => {
+    const toolsToFix = [
+      { name: "orch_integrate", props: { mode: ["fast-forward", "merge", "pr"] } },
+      { name: "send_agent_message", props: { type: ["steer", "query", "abort", "info"] } },
+      { name: "broadcast_message", props: { type: ["steer", "info", "abort"] } },
+      { name: "review_step", props: { type: ["plan", "code"] } }
+    ];
+
+    for (const fix of toolsToFix) {
+      const oldTool = pi.getAllTools().find(t => t.name === fix.name);
+      if (oldTool) {
+        // Construct a new parameter object that uses standard enums for the problematic fields
+        const newParams: any = { ...oldTool.parameters };
+        for (const [prop, values] of Object.entries(fix.props)) {
+          if (newParams.properties && newParams.properties[prop]) {
+            newParams.properties[prop] = {
+              type: "string",
+              enum: values,
+              description: newParams.properties[prop].description
+            };
+          }
+        }
+
+        pi.registerTool({
+          ...oldTool,
+          parameters: newParams
+        });
+      }
+    }
+  });
+
+  // --- Active Routing Logic ---
+  pi.on("before_agent_start", async (event, ctx) => {
+    // Get the last user message
+    const lastUserEntry = ctx.sessionManager.getBranch()
+      .reverse()
+      .find(e => e.type === "message" && e.message.role === "user");
+
+    if (lastUserEntry && lastUserEntry.type === "message") {
+      const query = lastUserEntry.message.content
+        .filter(c => c.type === "text")
+        .map(c => c.text)
+        .join(" ");
+
+      const result = await engine.route(query);
+      
+      if (result.winningRoute?.model) {
+        // Find the model in the registry to see if it's available/logged in
+        const [provider, id] = result.winningRoute.model.split("/");
+        const model = ctx.modelRegistry.find(provider, id);
+        
+        if (model) {
+          const success = await pi.setModel(model);
+          if (success) {
+            ctx.ui.setStatus("routing", `Routed to: ${result.winningRoute.name} (${model.id})`);
+          } else {
+            ctx.ui.setStatus("routing", `Route ${result.winningRoute.name} skipped: Service logged out`);
+          }
+        }
+      }
+    }
+  });
 
   pi.registerCommand("route", {
     description: "Test the routing engine with a query",

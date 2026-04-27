@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: .
+    container_name: agent-exp-accounting-bot
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/usr/src/app/uploads
+      - ./output:/usr/src/app/output
+      - ./.env:/usr/src/app/.env:ro
+    environment:
+      # OLLAMA_HOST is used by standard tools and pi-coding-agent to find Ollama
+      # host.docker.internal works out of the box on Docker Desktop (Mac/Win) 
+      # and on Linux thanks to the extra_hosts mapping below.
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      # PI_MODEL=ollama/gemma4:31b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

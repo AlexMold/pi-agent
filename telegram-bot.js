@@ -3,75 +3,26 @@ const TelegramBot = require("node-telegram-bot-api");
 const path = require("path");
 const fs = require("fs");
 const { RoutingEngine } = require("./lib/model-router");
+const { ROUTES } = require("./lib/routes");
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_USER_ID = parseInt(process.env.ALLOWED_USER_ID, 10);
 const WORK_DIR = process.cwd();
 const UPLOADS_DIR = path.join(WORK_DIR, "uploads");
 
-let CURRENT_MODEL = process.env.PI_MODEL || "google-antigravity/gemini-3-flash";
+// Default model — use the largest available local model for best results
+let CURRENT_MODEL = process.env.PI_MODEL || "ollama/qwen3.6:35b-a3b-q8_0";
 let AUTO_ROUTING = true;
 
 const AVAILABLE_MODELS = [
-  "google-antigravity/gemini-3.1-pro-high",
-  "google-antigravity/gemini-3.1-pro-low",
-  "google-antigravity/gemini-3.1-ultra",
-  "google-antigravity/gemini-3.1-flash-high",
-  "google-antigravity/gemini-3-flash",
-  "google-antigravity/claude-sonnet-4-5",
-  "google-antigravity/claude-sonnet-4-5-thinking",
-  "google-antigravity/claude-opus-4-6-thinking",
-  "google-antigravity/gpt-5-pro",
-  "google-antigravity/gpt-5-mini",
-  "google-antigravity/o3-mini",
-  "google-antigravity/o3-preview",
-  "google-antigravity/deepseek-r2-thinking",
-  "google-antigravity/llama-4-405b",
-  "ollama/gemma4:31b",
-  "ollama/gemma4:latest",
+  "ollama/qwen3.6:35b-a3b-q8_0",   // 128k context — most capable
+  "ollama/gemma4:31b",              // 64k  context — strong reasoning
+  "ollama/gemma4:latest",           //  8k  context — fast for simple tasks
 ];
 
 // Initialize Routing Engine
-const router = new RoutingEngine();
-router.addRoutes([
-  {
-    id: "accounting",
-    description:
-      "Financial analysis, invoices, taxes, and complex accounting tasks",
-    keywords: [
-      "инвойс",
-      "счет",
-      "бухгалтерия",
-      "отчет",
-      "налоги",
-      "invoice",
-      "tax",
-      "accounting",
-    ],
-    model: "google-antigravity/gemini-3.1-pro-high",
-  },
-  {
-    id: "search",
-    description: "Web search, finding information, prices, and news",
-    keywords: [
-      "найди",
-      "поиск",
-      "гугл",
-      "google",
-      "search",
-      "сколько стоит",
-      "find",
-      "price",
-    ],
-    model: "google-antigravity/gemini-3-flash",
-  },
-  {
-    id: "chat",
-    description: "General conversation, greetings, and simple questions",
-    keywords: ["привет", "как дела", "кто ты", "hello", "hi", "who are you"],
-    model: "ollama/gemma4:31b",
-  },
-]);
+const router = new RoutingEngine({ botName: "Бухгалтерский ассистент" });
+router.addRoutes(ROUTES);
 
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -103,8 +54,8 @@ function log(message) {
 // Используем spawn вместо exec, так как это стабильнее для Pi в не-интерактивном режиме
 function runPiQuery(prompt, imagePath = null, forcedModel = null) {
   return new Promise((resolve, reject) => {
-    const PI_PATH = path.join(
-      process.env.HOME,
+    const PI_PATH = process.env.PI_PATH || path.join(
+      process.env.HOME || "",
       ".nvm/versions/node/v24.13.0/bin/pi",
     );
 
@@ -115,11 +66,13 @@ function runPiQuery(prompt, imagePath = null, forcedModel = null) {
     const args = [
       "--model",
       modelToUse,
+      "--offline",
+      "--no-skills",
+      "--no-themes",
+      "--no-context-files",
       "--extension",
       extensionPath,
       "-p",
-      "-c",
-      "--verbose",
     ];
 
     if (imagePath) {
@@ -132,7 +85,12 @@ function runPiQuery(prompt, imagePath = null, forcedModel = null) {
 
     const child = spawn(PI_PATH, args, {
       cwd: WORK_DIR,
-      env: { ...process.env, PI_SKIP_VERSION_CHECK: "1" },
+      env: {
+        ...process.env,
+        PI_SKIP_VERSION_CHECK: "1",
+        PI_OFFLINE: "1",
+        PI_TELEMETRY: "0",
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -171,8 +129,11 @@ bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
 
+  log(`[INCOMING] Message from ${userId} (Chat: ${chatId}): ${msg.text || "[No text]"}`);
+
   if (userId !== ALLOWED_USER_ID) {
-    log(`[SECURITY] Отклонен запрос от ID: ${userId}`);
+    log(`[SECURITY] Отклонен запрос от ID: ${userId}. Allowed: ${ALLOWED_USER_ID}`);
+    await bot.sendMessage(chatId, `⛔ Доступ запрещен. Ваш ID: \`${userId}\`. Разрешен только ID: \`${ALLOWED_USER_ID}\``, { parse_mode: "Markdown" });
     return;
   }
 

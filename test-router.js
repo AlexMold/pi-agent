@@ -15,21 +15,21 @@ async function testRouter() {
       name: "Accounting",
       description: "Questions about taxes, invoices, bank transfers, or accounting software.",
       keywords: ["tax", "invoice", "bank", "transfer", "vat"],
-      model: "google-antigravity/gemini-3.1-pro-high"
+      model: "ollama/gemma4:31b"
     },
     {
       id: "coding",
       name: "Coding",
       description: "Software development, debugging, or refactoring tasks.",
       keywords: ["code", "debug", "refactor", "function", "javascript"],
-      model: "google-antigravity/gemini-3.1-pro-high"
+      model: "ollama/gemma4:31b"
     },
     {
       id: "chitchat",
       name: "Chitchat",
       description: "General conversation, greetings, or casual talk.",
       keywords: ["hi", "hello", "weather"],
-      model: "google-antigravity/gemini-3-flash"
+      model: "ollama/gemma4:latest"
     }
   ]);
 
