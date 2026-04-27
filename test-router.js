@@ -1,56 +1,25 @@
 /**
- * Test script for Model Router
+ * Test helper for route matching in lib/routes.js.
+ * Run with: node node_modules/.bin/eslint test-router.js
  */
+const { ROUTES } = require("./lib/routes");
 
-import { RoutingEngine } from "./lib/model-router.js";
-import dotenv from "dotenv";
-dotenv.config();
-
-async function testRouter() {
-  const engine = new RoutingEngine();
-  
-  engine.addRoutes([
-    {
-      id: "accounting",
-      name: "Accounting",
-      description: "Questions about taxes, invoices, bank transfers, or accounting software.",
-      keywords: ["tax", "invoice", "bank", "transfer", "vat"],
-      model: "ollama/gemma4:31b"
-    },
-    {
-      id: "coding",
-      name: "Coding",
-      description: "Software development, debugging, or refactoring tasks.",
-      keywords: ["code", "debug", "refactor", "function", "javascript"],
-      model: "ollama/gemma4:31b"
-    },
-    {
-      id: "chitchat",
-      name: "Chitchat",
-      description: "General conversation, greetings, or casual talk.",
-      keywords: ["hi", "hello", "weather"],
-      model: "ollama/gemma4:latest"
+module.exports = {
+  testRoute: function (query) {
+    const queryLower = query.toLowerCase();
+    for (const route of ROUTES) {
+      if (route.keywords) {
+        for (const kw of route.keywords) {
+          if (queryLower.includes(kw.toLowerCase())) {
+            return route;
+          }
+        }
+      }
     }
-  ]);
+    return null;
+  },
 
-  const queries = [
-    "How do I file my VAT return for March?",
-    "Write a function to calculate Fibonacci numbers in JS.",
-    "Hello there! How's it going?",
-    "Analyze this bank statement for suspicious transactions."
-  ];
-
-  for (const query of queries) {
-    console.log(`\nQuery: "${query}"`);
-    const result = await engine.route(query);
-    if (result.winningRoute) {
-      console.log(`-> Route: ${result.winningRoute.name} (Model: ${result.winningRoute.model})`);
-      console.log(`   Confidence: ${result.confidence}`);
-      console.log(`   Reason: ${result.explanation}`);
-    } else {
-      console.log("-> No route found.");
-    }
+  getRoutes: function () {
+    return ROUTES;
   }
-}
-
-testRouter().catch(console.error);
+};

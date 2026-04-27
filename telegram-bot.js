@@ -5,23 +5,27 @@ const fs = require("fs");
 const { RoutingEngine } = require("./lib/model-router");
 const { ROUTES } = require("./lib/routes");
 
+// === Wiki Context System ===
+const wikiLogger = require("./wiki/logger");
+const wikiContext = require("./wiki/context-builder");
+const wikiSummarizer = require("./wiki/summarizer");
+const wikiMaintenance = require("./wiki/maintenance");
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const ALLOWED_USER_ID = parseInt(process.env.ALLOWED_USER_ID, 10);
 const WORK_DIR = process.cwd();
 const UPLOADS_DIR = path.join(WORK_DIR, "uploads");
 
-// Default model — use the largest available local model for best results
-let CURRENT_MODEL = process.env.PI_MODEL || "ollama/qwen3.6:35b-a3b-q8_0";
-let AUTO_ROUTING = true;
+// Wiki settings - controlled via env
+const WIKI_ENABLED = process.env.WIKI_ENABLED !== "false"; // true by default
+const WIKI_MAX_SUMMARIES = parseInt(process.env.WIKI_MAX_SUMMARIES, 10) || 3;
 
-const AVAILABLE_MODELS = [
-  "ollama/qwen3.6:35b-a3b-q8_0",   // 128k context — most capable
-  "ollama/gemma4:31b",              // 64k  context — strong reasoning
-  "ollama/gemma4:latest",           //  8k  context — fast for simple tasks
-];
+// Fixed default — always gemma4:latest, no LLM routing (avoids subprocess hangs)
+let CURRENT_MODEL = process.env.PI_MODEL || "ollama/gemma4:latest";
+let AUTO_ROUTING = false; // disabled — LLM fallback in model-router has no timeout
+let AVAILABLE_MODELS = ["ollama/gemma4:latest"];
 
 // Initialize Routing Engine
-const router = new RoutingEngine({ botName: "Бухгалтерский ассистент" });
+const router = new RoutingEngine({ botName: "Помощник по рутине" });
 router.addRoutes(ROUTES);
 
 if (!fs.existsSync(UPLOADS_DIR)) {
@@ -54,10 +58,7 @@ function log(message) {
 // Используем spawn вместо exec, так как это стабильнее для Pi в не-интерактивном режиме
 function runPiQuery(prompt, imagePath = null, forcedModel = null) {
   return new Promise((resolve, reject) => {
-    const PI_PATH = process.env.PI_PATH || path.join(
-      process.env.HOME || "",
-      ".nvm/versions/node/v24.13.0/bin/pi",
-    );
+    const PI_PATH = process.env.PI_PATH || path.join(process.env.HOME || "", ".nvm/versions/node/v24.13.0/bin/pi");
 
     const modelToUse = forcedModel || CURRENT_MODEL;
     const extensionPath = path.join(WORK_DIR, "pi-search-extension.js");
@@ -72,7 +73,7 @@ function runPiQuery(prompt, imagePath = null, forcedModel = null) {
       "--no-context-files",
       "--extension",
       extensionPath,
-      "-p",
+      "-p"
     ];
 
     if (imagePath) {
@@ -89,9 +90,9 @@ function runPiQuery(prompt, imagePath = null, forcedModel = null) {
         ...process.env,
         PI_SKIP_VERSION_CHECK: "1",
         PI_OFFLINE: "1",
-        PI_TELEMETRY: "0",
+        PI_TELEMETRY: "0"
       },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"]
     });
 
     let stdout = "";
@@ -133,7 +134,11 @@ bot.on("message", async (msg) => {
 
   if (userId !== ALLOWED_USER_ID) {
     log(`[SECURITY] Отклонен запрос от ID: ${userId}. Allowed: ${ALLOWED_USER_ID}`);
-    await bot.sendMessage(chatId, `⛔ Доступ запрещен. Ваш ID: \`${userId}\`. Разрешен только ID: \`${ALLOWED_USER_ID}\``, { parse_mode: "Markdown" });
+    await bot.sendMessage(
+      chatId,
+      `⛔ Доступ запрещен. Ваш ID: \`${userId}\`. Разрешен только ID: \`${ALLOWED_USER_ID}\``,
+      { parse_mode: "Markdown" }
+    );
     return;
   }
 
@@ -144,24 +149,25 @@ bot.on("message", async (msg) => {
     if (text === "/start" || text === "/help") {
       await bot.sendMessage(
         chatId,
-        "🤖 *Бухгалтерский ассистент*\n\n" +
-          "Присылайте текст или фото для анализа. Я использую Pi для обработки запросов.\n\n" +
-          "*Команды:*\n" +
-          "/models - список доступных моделей\n" +
-          "/model <номер или имя> - сменить текущую модель\n" +
-          "/autoroute <on/off> - включить/выключить авто-роутинг\n" +
-          "/status - текущие настройки",
-        { parse_mode: "Markdown" },
+        "🤖 *Помощник по рутине*\n\n" +
+          "Привет! Я ваш ежедневный ассистент для планирования, управления задачами и рутиной.\n\n" +
+          "*Возможности:*\n" +
+          "📅 Планирование дня и отслеживание задач\n" +
+          "🧠 Память через Wiki — я помню ваши предпочтения\n" +
+          "🔍 Поиск информации в интернете\n" +
+          "💡 Советы по продуктивности\n\n" +
+          "Просто поговорите со мной — я автоматически запоминаю контекст!",
+        { parse_mode: "Markdown" }
       );
       return;
     }
 
     if (text === "/models") {
       const list = AVAILABLE_MODELS.map((m, i) =>
-        m === CURRENT_MODEL ? `✅ ${i + 1}. ${m}` : `▫️ ${i + 1}. ${m}`,
+        m === CURRENT_MODEL ? `✅ ${i + 1}. ${m}` : `▫️ ${i + 1}. ${m}`
       ).join("\n");
       await bot.sendMessage(chatId, `📊 *Доступные модели:*\n\n${list}`, {
-        parse_mode: "Markdown",
+        parse_mode: "Markdown"
       });
       return;
     }
@@ -177,21 +183,14 @@ bot.on("message", async (msg) => {
         if (AVAILABLE_MODELS.includes(input)) {
           CURRENT_MODEL = input;
         } else {
-          await bot.sendMessage(
-            chatId,
-            `⚠️ Неверный индекс или имя модели. Используйте /models для списка.`,
-          );
+          await bot.sendMessage(chatId, `⚠️ Неверный индекс или имя модели. Используйте /models для списка.`);
           return;
         }
       }
 
-      await bot.sendMessage(
-        chatId,
-        `🔄 Модель изменена на: \`${CURRENT_MODEL}\``,
-        {
-          parse_mode: "Markdown",
-        },
-      );
+      await bot.sendMessage(chatId, `🔄 Модель изменена на: \`${CURRENT_MODEL}\``, {
+        parse_mode: "Markdown"
+      });
       log(`[CONFIG] Модель изменена на: ${CURRENT_MODEL}`);
       return;
     }
@@ -199,24 +198,93 @@ bot.on("message", async (msg) => {
     if (text.startsWith("/autoroute ")) {
       const val = text.replace("/autoroute ", "").trim().toLowerCase();
       AUTO_ROUTING = val === "on" || val === "true" || val === "1";
-      await bot.sendMessage(
-        chatId,
-        `🤖 Авто-роутинг: ${AUTO_ROUTING ? "✅ ВКЛ" : "❌ ВЫКЛ"}`,
-      );
+      await bot.sendMessage(chatId, `🤖 Авто-роутинг: ${AUTO_ROUTING ? "✅ ВКЛ" : "❌ ВЫКЛ"}`);
       return;
     }
 
     if (text === "/status") {
+      let wikiStatus = "";
+      if (WIKI_ENABLED) {
+        const stats = wikiContext.getWikiStats();
+        const hasMemory = wikiContext.hasMemoryForUser(chatId);
+        wikiStatus = `
+• Wiki: \`ВКЛ\` | Сессий: ${stats.activeSessions} | Память: ${stats.totalSizeKB}KB`;
+        if (hasMemory) wikiStatus += " | 🔖 Есть история";
+      }
       await bot.sendMessage(
         chatId,
         `⚙️ *Текущий статус:*\n\n` +
           `• Модель: \`${CURRENT_MODEL}\`\n` +
           `• Авто-роутинг: \`${AUTO_ROUTING ? "ВКЛ" : "ВЫКЛ"}\`\n` +
-          `• Папка: \`${WORK_DIR}\``,
-        { parse_mode: "Markdown" },
+          `• Папка: \`${WORK_DIR}\`\n` +
+          wikiStatus,
+        { parse_mode: "Markdown" }
       );
       return;
     }
+  }
+
+  // === Wiki commands (before normal processing) ===
+  if (msg.text && msg.text.startsWith("/wiki")) {
+    const subcmd = msg.text.trim().replace("/wiki", "").trim().toLowerCase().replace(/^\s+/, "");
+
+    if (!WIKI_ENABLED) {
+      await bot.sendMessage(chatId, "⚠️ Wiki отключен. Установите WIKI_ENABLED=true в .env");
+      return;
+    }
+
+    if (subcmd === "" || subcmd === "status") {
+      // Show wiki status
+      const stats = wikiContext.getWikiStats();
+      const session = wikiLogger.readSession(chatId);
+      const hasMemory = wikiContext.hasMemoryForUser(chatId);
+
+      let msg_parts = `📚 *Wiki Status:*\n\n`;
+      msg_parts += `📂 Активные сессии: \`${stats.activeSessions}\`\n`;
+      msg_parts += `📜 Файлы памяти: \`${stats.summaryFiles}\`\n`;
+      msg_parts += `💾 Размер: \`${stats.totalSizeKB}KB\`\n`;
+      msg_parts += `🏷️ Индекс: ${stats.hasEntitiesIndex ? "✅" : "❌"}\n`;
+      msg_parts += `🔖 Память о вас: ${hasMemory ? "✅ есть" : "❌ нет"}\n`;
+      if (session) {
+        msg_parts += `💬 Сообщений в сессии: \`${session.messages.length}\`\n`;
+      }
+      await bot.sendMessage(chatId, msg_parts, { parse_mode: "Markdown" });
+    } else if (subcmd === "memory") {
+      // Show recent memory
+      const history = wikiSummarizer.getRecentHistory(WIKI_MAX_SUMMARIES);
+      if (history && history.length > 0) {
+        // Truncate to Telegram limit
+        const trimmed = history.length > 3800 ? history.substring(0, 3800) + "\n\n[... truncated ...]" : history;
+        await bot.sendMessage(chatId, `📜 *Recent Memory:*\n\n${trimmed}`, { parse_mode: "Markdown" });
+      } else {
+        await bot.sendMessage(chatId, "📜 Нет сохраненной истории. Команды пока не сохраняют память.");
+      }
+    } else if (subcmd === "summarize" || subcmd === "close") {
+      // Force summarize current session
+      await bot.sendMessage(chatId, "📝 Compressing session...");
+      try {
+        const results = await wikiSummarizer.summarizeAllClosed();
+        if (results.length > 0) {
+          await bot.sendMessage(chatId, `✅ Session compressed. ${results[0].success ? "Success" : "Failed"}`);
+        } else {
+          await bot.sendMessage(chatId, `✅ No sessions to compress.`);
+        }
+      } catch (err) {
+        await bot.sendMessage(chatId, `⚠️ Compression failed: ${err.message}`);
+      }
+    } else if (subcmd === "stats") {
+      const stats = wikiContext.getWikiStats();
+      await bot.sendMessage(
+        chatId,
+        `📊 Wiki Stats: ${stats.activeSessions} sessions, ${stats.summaryFiles} memory files, ${stats.totalSizeKB}KB total`
+      );
+    } else {
+      await bot.sendMessage(
+        chatId,
+        `⚠️ Unknown wiki command: \`/wiki ${subcmd}\`\n\nCommands: wiki, wiki memory, wiki summarize, wiki stats`
+      );
+    }
+    return;
   }
 
   let prompt = msg.text || msg.caption || "Опиши это изображение";
@@ -224,9 +292,7 @@ bot.on("message", async (msg) => {
   let routingInfo = "";
 
   // 1. Проверяем ручной выбор модели через префикс
-  const modelMatch = prompt.match(
-    /^(?:model|модель):\s*([^\s\n]+)\s*([\s\S]*)$/i,
-  );
+  const modelMatch = prompt.match(/^(?:model|модель):\s*([^\s\n]+)\s*([\s\S]*)$/i);
   if (modelMatch) {
     const modelInput = modelMatch[1];
     const index = parseInt(modelInput, 10);
@@ -248,7 +314,7 @@ bot.on("message", async (msg) => {
         activeModel = result.winningRoute.model;
         routingInfo = `[Route: ${result.winningRoute.id}] `;
         log(
-          `[AUTO-ROUTE] Query: "${msg.text.substring(0, 50)}..." -> Route: ${result.winningRoute.id} (${activeModel})`,
+          `[AUTO-ROUTE] Query: "${msg.text.substring(0, 50)}..." -> Route: ${result.winningRoute.id} (${activeModel})`
         );
       }
     } catch (err) {
@@ -271,16 +337,20 @@ bot.on("message", async (msg) => {
     } catch (err) {
       log(`[IMAGE ERROR] ${err.message}`);
       try {
-        await bot.sendMessage(
-          chatId,
-          `⚠️ Не удалось скачать изображение: ${err.message}`,
-        );
+        await bot.sendMessage(chatId, `⚠️ Не удалось скачать изображение: ${err.message}`);
       } catch (e) {}
       return;
     }
   }
 
   if (!msg.text && !msg.photo) return;
+
+  // === Wiki: Log user message to session ===
+  const username = msg.from.first_name || "Anonymous";
+  const extraFile = imagePath ? `Attached: ${path.basename(imagePath)}` : "";
+  if (WIKI_ENABLED) {
+    wikiLogger.logMessage(chatId, username, "user", msg.text || msg.caption || "", extraFile);
+  }
 
   log(`[IN] ${prompt}${imagePath ? " [WITH IMAGE]" : ""}`);
 
@@ -291,20 +361,35 @@ bot.on("message", async (msg) => {
   }, 5000);
 
   try {
-    const response = await runPiQuery(prompt, imagePath, activeModel);
+    // === Wiki: Assemble context for this chat ===
+    let fullPrompt = prompt;
+    if (WIKI_ENABLED) {
+      const ctx = wikiContext.assembleContext(chatId);
+      if (ctx.context && ctx.context.trim().length > 10) {
+        // Insert context before the user query
+        fullPrompt = `---\nContext Wiki\n${ctx.context}\n---\n\n${prompt}`;
+        log(
+          `[WIKI] Context assembled: ${ctx.tokens} tokens, active=${ctx.hasActiveSession}, history=${ctx.hasHistory}`
+        );
+      }
+    }
+
+    const response = await runPiQuery(fullPrompt, imagePath, activeModel);
     clearInterval(typingInterval);
 
     if (!response || response.length < 2) {
       try {
-        await bot.sendMessage(
-          chatId,
-          "⚠️ Pi не вернул текстового ответа. Попробуйте переформулировать запрос.",
-        );
+        await bot.sendMessage(chatId, "⚠️ Pi не вернул текстового ответа. Попробуйте переформулировать запрос.");
       } catch (e) {}
       return;
     }
 
     log(`[OUT] ${response.substring(0, 300)}...`);
+
+    // === Wiki: Log assistant response ===
+    if (WIKI_ENABLED) {
+      wikiLogger.logMessage(chatId, username, "assistant", response);
+    }
 
     // Разбиваем длинный ответ на части (лимит Telegram — 4096 символов)
     const chunks = response.match(/[\s\S]{1,4000}/g) || [response];
@@ -317,9 +402,7 @@ bot.on("message", async (msg) => {
     try {
       await bot.sendMessage(chatId, `⚠️ Ошибка агента: ${err.message}`);
     } catch (sendErr) {
-      log(
-        `[CRITICAL ERROR] Не удалось отправить сообщение об ошибке: ${sendErr.message}`,
-      );
+      log(`[CRITICAL ERROR] Не удалось отправить сообщение об ошибке: ${sendErr.message}`);
     }
   } finally {
     // Удаляем временный файл изображения если он был

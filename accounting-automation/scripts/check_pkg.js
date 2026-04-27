@@ -1,2 +1,2 @@
-const pkg = require('@opendataloader/pdf');
-console.log('Package Exports:', pkg);
+const pkg = require("@opendataloader/pdf");
+console.log("Package Exports:", pkg);

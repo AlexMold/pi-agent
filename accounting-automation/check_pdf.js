@@ -1,2 +1,2 @@
-const pdf = require('pdf-parse');
+const pdf = require("pdf-parse");
 console.log(pdf);

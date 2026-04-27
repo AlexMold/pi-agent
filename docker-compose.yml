@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   telegram-bot:
@@ -8,10 +8,11 @@ services:
     volumes:
       - ./uploads:/usr/src/app/uploads
       - ./output:/usr/src/app/output
+      - ./wiki:/usr/src/app/wiki
       - ./.env:/usr/src/app/.env:ro
     environment:
       # OLLAMA_HOST is used by standard tools and pi-coding-agent to find Ollama
-      # host.docker.internal works out of the box on Docker Desktop (Mac/Win) 
+      # host.docker.internal works out of the box on Docker Desktop (Mac/Win)
       # and on Linux thanks to the extra_hosts mapping below.
       - OLLAMA_HOST=http://host.docker.internal:11434
       # PI_MODEL=ollama/gemma4:31b
