@@ -14,9 +14,23 @@
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "docker:reload": "npm run docker:down && npm run docker:build && npm run docker:up",
+    "whisper:install": "git clone https://github.com/ggerganov/whisper.cpp .whisper && cd .whisper && make -j",
+    "whisper:model": "cd .whisper && bash models/download-ggml-model.sh large-v3",
+    "whisper:start": ".whisper/build/bin/whisper-server -m .whisper/models/ggml-large-v3.bin --port 8080 --host 0.0.0.0",
+    "whisper:stop": "pkill -f whisper-server || true",
+    "whisper:setup": "npm run whisper:install && npm run whisper:model",
+    "dev:full": "npm run whisper:start & sleep 2 && npm run docker:up && npm run docker:logs"
   },
-  "keywords": ["ai", "telegram", "llm", "ollama", "deepseek", "vector-memory"],
+  "keywords": [
+    "ai",
+    "telegram",
+    "llm",
+    "ollama",
+    "deepseek",
+    "vector-memory"
+  ],
   "author": "",
   "license": "ISC",
   "type": "module",
@@ -26,12 +40,14 @@
     "dotenv": "^17.4.2",
     "grammy": "^1.38.1",
     "js-tiktoken": "^1.0.19",
+    "markdown-it": "^14.1.1",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.15.3",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",

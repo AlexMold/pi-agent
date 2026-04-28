@@ -6,10 +6,11 @@ FROM node:24.13.0-slim
 
 WORKDIR /app
 
-# Install system dependencies (for LanceDB native bindings)
+# Install system dependencies (for LanceDB native bindings + ffmpeg for audio conversion)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     build-essential \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy deps first for layer caching

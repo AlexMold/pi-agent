@@ -17,6 +17,7 @@ import type { RouteResult } from "./router.js";
 export async function executeAgentTask(
   task: string,
   route: RouteResult,
+  imagePath?: string,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const isHostOllama =
@@ -34,6 +35,14 @@ export async function executeAgentTask(
       "--no-context-files",
     ];
 
+    const isVision = route.model.includes("minicpm");
+    if (isVision) {
+      args.push("--no-tools");
+    } else {
+      // Memory tool only for non-vision models (vision can't use tools)
+      args.push("--extension", "/app/src/memory-tool.js");
+    }
+
     if (isHostOllama) {
       args.push("--offline");
     }
@@ -43,6 +52,10 @@ export async function executeAgentTask(
     }
 
     // Prompt and --print flag must come last
+    // If image attached, add @path before the prompt
+    if (imagePath) {
+      args.push(`@${imagePath}`);
+    }
     args.push("--print", task);
 
     // If cloud model, pass API key via env
