@@ -1,20 +1,23 @@
 version: "3.8"
 
 services:
-  telegram-bot:
-    build: .
-    container_name: agent-exp-accounting-bot
-    restart: unless-stopped
+  agent-brain:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: ai-assistant-pro
+    restart: always
     volumes:
-      - ./uploads:/usr/src/app/uploads
-      - ./output:/usr/src/app/output
-      - ./wiki:/usr/src/app/wiki
-      - ./.env:/usr/src/app/.env:ro
+      - ./workspace:/app/workspace
+      - ./memory_db:/app/memory_db
+      - ./.env:/app/.env:ro
+      - ./.pi/agent:/root/.pi/agent
     environment:
-      # OLLAMA_HOST is used by standard tools and pi-coding-agent to find Ollama
-      # host.docker.internal works out of the box on Docker Desktop (Mac/Win)
-      # and on Linux thanks to the extra_hosts mapping below.
-      - OLLAMA_HOST=http://host.docker.internal:11434
-      # PI_MODEL=ollama/gemma4:31b
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - OLLAMA_HOST=host.docker.internal:11434
+      - WHISPER_HOST=host.docker.internal:8080
+      - ALLOWED_USER_ID=${ALLOWED_USER_ID}
     extra_hosts:
       - "host.docker.internal:host-gateway"

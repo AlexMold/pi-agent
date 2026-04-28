@@ -1,15 +1,19 @@
 {
-    "providers": {
-        "ollama": {
-            "baseUrl": "http://localhost:11434/v1",
-            "api": "openai-completions",
-            "apiKey": "ollama",
-            "models": [
-                { "id": "qwen3.6:35b-a3b-q8_0", "contextWindow": 128000 },
-                { "id": "gemma4:31b", "contextWindow": 64000 },
-                { "id": "gemma4:latest", "contextWindow": 8000 }
-            ]
-        }
-    },
-    "defaultModel": "ollama/qwen3.6:35b-a3b-q8_0"
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://host.docker.internal:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        { "id": "gemma4:31b", "name": "Gemma 4 31B (Local)", "contextWindow": 128000 },
+        { "id": "gemma4:latest", "name": "Gemma 4 8B (Local)", "contextWindow": 128000 },
+        { "id": "qwen3.6:35b-a3b-q8_0", "name": "Qwen 3.6 35B (Local)", "contextWindow": 131072 },
+        { "id": "minicpm-v:8b-2.6-q4_K_M", "name": "MiniCPM-V 8B (Local Vision)", "contextWindow": 128000, "input": ["text", "image"] }
+      ]
+    }
+  }
 }

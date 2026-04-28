@@ -1,60 +1,40 @@
 {
-  "name": "agent-exp-accounting",
-  "version": "1.0.0",
-  "description": "",
-  "main": "telegram-bot.js",
+  "name": "ai-assistant-pro",
+  "version": "2.0.0",
+  "description": "AI Assistant Pro — Telegram Bot with Smart Routing, Vector Memory, and Cloud/Local LLM inference",
+  "main": "src/bot.ts",
   "scripts": {
-    "start": "node telegram-bot.js",
-    "dev": "nodemon telegram-bot.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node --loader ts-node/esm src/bot.ts",
+    "dev": "nodemon --exec \"node --loader ts-node/esm\" src/bot.ts",
+    "build": "tsc",
+    "test": "echo \"No tests yet\" && exit 0",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"**/*.{js,json,md,yml,yaml,sh}\"",
-    "fmt": "prettier --write \"**/*.{js,json,md,yml,yaml,sh}\""
+    "format": "prettier --write \"**/*.{ts,js,json,md,yml,yaml,sh}\"",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
-  "keywords": [],
+  "keywords": ["ai", "telegram", "llm", "ollama", "deepseek", "vector-memory"],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
-  "nodemonConfig": {
-    "ignore": [
-      "uploads/*",
-      "output/*",
-      "*.log",
-      "*.html",
-      "*.json",
-      "*.pdf",
-      "*.pages",
-      "*.png",
-      "*.txt",
-      "wiki/messages/*",
-      "wiki/summaries/*"
-    ]
-  },
+  "type": "module",
   "dependencies": {
+    "@lancedb/lancedb": "^0.17.0",
+    "@mariozechner/pi-coding-agent": "^0.70.2",
     "dotenv": "^17.4.2",
-    "markdown-it": "^14.1.1",
-    "node-pty": "^1.1.0",
-    "node-telegram-bot-api": "^0.67.0"
+    "grammy": "^1.38.1",
+    "js-tiktoken": "^1.0.19",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^22.15.3",
     "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-jsonc": "^3.1.2",
-    "globals": "^17.5.0",
-    "nodemon": "^3.1.14",
     "prettier": "^3.8.3"
-  },
-  "directories": {
-    "lib": "lib"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AlexMold/pi-agent.git"
-  },
-  "bugs": {
-    "url": "https://github.com/AlexMold/pi-agent/issues"
-  },
-  "homepage": "https://github.com/AlexMold/pi-agent#readme"
+  }
 }

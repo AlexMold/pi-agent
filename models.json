@@ -1,0 +1,47 @@
+{
+  "models": [
+    {
+      "providerId": "ollama/deepseek-v4-distill-32b",
+      "name": "DeepSeek V4 Distill 32B (Local)",
+      "id": "deepseek-v4-distill-32b",
+      "type": "local",
+      "maxTokens": 100000,
+      "description": "Default local model — fast, efficient for everyday tasks on M4 Pro"
+    },
+    {
+      "providerId": "ollama/gemma4:31b",
+      "name": "Gemma 4 31B (Local)",
+      "id": "gemma4:31b",
+      "type": "local",
+      "maxTokens": 128000,
+      "description": "Google Gemma 4 — good for chat and code, fallback for basic queries"
+    },
+    {
+      "providerId": "ollama/qwen3.6:35b",
+      "name": "Qwen 3.6 35B (Local)",
+      "id": "qwen3.6:35b",
+      "type": "local",
+      "maxTokens": 131072,
+      "description": "Alibaba Qwen — strong for complex code & math"
+    },
+    {
+      "providerId": "ollama/nomic-embed-text",
+      "name": "Nomic Embed Text (Local)",
+      "id": "nomic-embed-text",
+      "type": "embedding",
+      "dimensions": 768,
+      "description": "Embedding model for vector memory (LanceDB)"
+    },
+    {
+      "providerId": "deepseek/deepseek-v4-pro",
+      "name": "DeepSeek V4 Pro (Cloud)",
+      "id": "deepseek-v4-pro",
+      "type": "cloud",
+      "maxTokens": 200000,
+      "description": "Cloud model — used for complex tasks, large contexts, or when local fails",
+      "baseUrl": "https://api.deepseek.com/v1"
+    }
+  ],
+  "defaultModel": "ollama/deepseek-v4-distill-32b",
+  "localHost": "host.docker.internal:11434"
+}

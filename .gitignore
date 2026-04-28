@@ -1,5 +1,11 @@
-.env
 node_modules
-.pi
+dist
 .env
-accounting-automation/node_modules
+.pi
+.ralph
+logs
+*.log
+output
+uploads
+workspace/
+memory_db/
