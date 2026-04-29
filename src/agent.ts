@@ -41,7 +41,7 @@ export async function executeAgentTask(
       "--model",
       route.model,
       "--extension",
-      "/app/src/search-extension.js",
+      "/app/src/tools/search/index.js",
       "--no-skills",
       "--no-themes",
       "--no-context-files",
@@ -52,11 +52,11 @@ export async function executeAgentTask(
       args.push("--no-tools");
     } else {
       // Memory tool only for non-vision models (vision can't use tools)
-      args.push("--extension", "/app/src/memory-tool.js");
+      args.push("--extension", "/app/src/tools/memory/index.js");
       // Calendar tool: create & list Google Calendar events
-      args.push("--extension", "/app/src/calendar-tool.js");
+      args.push("--extension", "/app/src/tools/calendar/index.js");
       // Xiaomi Home tool
-      args.push("--extension", "/app/src/xiaomi-tool.js");
+      args.push("--extension", "/app/src/tools/xiaomi/index.js");
     }
 
     if (isHostOllama) {
