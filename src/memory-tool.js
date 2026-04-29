@@ -9,8 +9,8 @@ import * as lancedb from "@lancedb/lancedb";
 
 const OLLAMA_BASE = process.env.OLLAMA_HOST || "host.docker.internal:11434";
 
-let db: any;
-let table: any;
+let db;
+let table;
 
 async function init() {
   if (db) return;
@@ -21,17 +21,17 @@ async function init() {
     : null;
 }
 
-async function embed(text: string): Promise<number[]> {
+async function embed(text) {
   const res = await fetch(`http://${OLLAMA_BASE}/api/embeddings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "nomic-embed-text", prompt: text }),
   });
-  const data = (await res.json()) as { embedding: number[] };
+  const data = await res.json();
   return data.embedding;
 }
 
-export default function (pi: any) {
+export default function (pi) {
   pi.registerTool({
     name: "recall_memory",
     description: `Search past conversations and retrieve relevant context.
@@ -61,7 +61,7 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
       },
       required: ["query"],
     },
-    execute: async (params: any) => {
+    execute: async (params) => {
       const { query, role, limit = 5, sort = "relevant" } = params;
 
       try {
@@ -71,7 +71,7 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
         const vector = await embed(query);
         const searchLimit = Math.min(limit || 5, 20);
 
-        let results: any[];
+        let results;
 
         if (sort === "recent" || sort === "oldest") {
           // Get all matching results, then sort by timestamp
@@ -80,8 +80,8 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
             .limit(50)
             .toArray();
           results = raw
-            .filter((r: any) => !role || r.role === role)
-            .sort((a: any, b: any) =>
+            .filter((r) => !role || r.role === role)
+            .sort((a, b) =>
               sort === "recent"
                 ? (b.timestamp || 0) - (a.timestamp || 0)
                 : (a.timestamp || 0) - (b.timestamp || 0)
@@ -103,7 +103,7 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
         }
 
         const formatted = results
-          .map((r: any) => {
+          .map((r) => {
             const date = r.timestamp
               ? new Date(r.timestamp).toISOString().replace("T", " ").slice(0, 19)
               : "unknown time";
@@ -114,7 +114,7 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
         return {
           content: [{ type: "text", text: `Found ${results.length} relevant messages:\n\n${formatted}` }],
         };
-      } catch (err: any) {
+      } catch (err) {
         return {
           content: [{ type: "text", text: `Memory search error: ${err.message}` }],
         };

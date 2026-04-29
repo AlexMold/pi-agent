@@ -1,6 +1,6 @@
 /**
  * Search Extension for Pi-Agent.
- * Registers google_search, brave_search, and tavily_search tools.
+ * Registers tavily_search (AI-optimized) and internet_search (Serper — Google index).
  * Loaded by pi CLI via: --extension src/search-extension.js
  */
 
@@ -26,87 +26,48 @@ function httpRequest(url, options = {}) {
 }
 
 export default function (pi) {
-  const { TAVILY_API_KEY, GOOGLE_SEARCH_API_KEY, GOOGLE_SEARCH_CX } = process.env;
+  const { TAVILY_API_KEY, SERPER_API_KEY } = process.env;
 
-  // ── Google Search ──────────────────────────────────────────────
-  pi.registerTool({
-    name: "google_search",
-    description: "Search the web using Google Custom Search API.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "The search query" },
+  // ── Serper.dev (Google index) ─────────────────────────────────
+  if (SERPER_API_KEY) {
+    pi.registerTool({
+      name: "internet_search",
+      description: "Search the web for real-time information using Serper (Google index). Returns titles, links, and snippets.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "The search query" },
+        },
+        required: ["query"],
       },
-      required: ["query"],
-    },
-    execute: async ({ query }) => {
-      if (!GOOGLE_SEARCH_API_KEY || !GOOGLE_SEARCH_CX) {
-        return {
-          content: [
-            { type: "text", text: "Error: GOOGLE_SEARCH_API_KEY or GOOGLE_SEARCH_CX not set" },
-          ],
-        };
-      }
-      try {
-        const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_CX}&q=${encodeURIComponent(query)}`;
-        const res = await httpRequest(url);
-        const results =
-          res.data.items
-            ?.slice(0, 5)
-            .map((r) => `Title: ${r.title}\nURL: ${r.link}\nDescription: ${r.snippet}`)
-            .join("\n\n") || "No results found.";
-        return { content: [{ type: "text", text: results }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: `Google Search error: ${err.message}` }] };
-      }
-    },
-  });
-
-  // ── Brave Search ───────────────────────────────────────────────
-  pi.registerTool({
-    name: "brave_search",
-    description: "Search the web using Brave Search API for high-quality results.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "The search query" },
-      },
-      required: ["query"],
-    },
-    execute: async ({ query }) => {
-      const apiKey = process.env.BRAVE_SEARCH_API_KEY;
-      if (!apiKey) {
-        return {
-          content: [{ type: "text", text: "Error: BRAVE_SEARCH_API_KEY not set" }],
-        };
-      }
-      try {
-        const res = await httpRequest(
-          `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}`,
-          {
+      execute: async ({ query }) => {
+        try {
+          const res = await httpRequest("https://google.serper.dev/search", {
+            method: "POST",
             headers: {
-              Accept: "application/json",
-              "X-Subscription-Token": apiKey,
+              "X-API-KEY": SERPER_API_KEY,
+              "Content-Type": "application/json",
             },
-          },
-        );
-        const results =
-          res.data.web?.results
-            ?.slice(0, 5)
-            .map((r) => `Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.description}`)
-            .join("\n\n") || "No results found.";
-        return { content: [{ type: "text", text: results }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: `Brave Search error: ${err.message}` }] };
-      }
-    },
-  });
+            body: JSON.stringify({ q: query, num: 5 }),
+          });
 
-  // ── Tavily Search ──────────────────────────────────────────────
+          const results = res.data.organic
+            ?.map((r) => `Title: ${r.title}\nLink: ${r.link}\nSnippet: ${r.snippet}`)
+            .join("\n\n") || "Nothing found.";
+
+          return { content: [{ type: "text", text: results }] };
+        } catch (err) {
+          return { content: [{ type: "text", text: `Search error: ${err.message}` }] };
+        }
+      },
+    });
+  }
+
+  // ── Tavily Search (AI-optimized) ──────────────────────────────
   if (TAVILY_API_KEY) {
     pi.registerTool({
       name: "tavily_search",
-      description: "AI-optimized web search via Tavily API. Returns clean, structured results.",
+      description: "AI-optimized web search via Tavily API. Returns clean, structured results. Use for research and complex queries.",
       parameters: {
         type: "object",
         properties: {
