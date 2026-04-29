@@ -13,12 +13,24 @@ import type { RouteResult } from "./router.js";
 
 /**
  * Run a task through Pi-Agent.
+ *
+ * @param signal  Optional AbortSignal — when aborted the child process is
+ *                killed and an AbortError is thrown so callers can detect
+ *                preemption cleanly.
  */
 export async function executeAgentTask(
   task: string,
   route: RouteResult,
   imagePath?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
+  // If already aborted before we even start, bail out immediately
+  if (signal?.aborted) {
+    const err = new Error("Aborted before start");
+    err.name = "AbortError";
+    throw err;
+  }
+
   return new Promise((resolve, reject) => {
     const isHostOllama =
       route.baseUrl.includes("host.docker.internal") ||
@@ -85,6 +97,18 @@ export async function executeAgentTask(
     let stdout = "";
     let stderr = "";
 
+    // ── Abort handling ───────────────────────────────────────────────
+    const onAbort = () => {
+      console.log("[Agent] AbortSignal fired — killing child process");
+      child.kill("SIGTERM");
+      // Give it a moment, then SIGKILL if still alive
+      setTimeout(() => child.kill("SIGKILL"), 2000);
+      const abortErr = new Error("Agent task aborted by newer message");
+      abortErr.name = "AbortError";
+      reject(abortErr);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
     child.stdout.on("data", (data: Buffer) => {
       stdout += data.toString();
     });
@@ -103,7 +127,11 @@ export async function executeAgentTask(
 
     child.on("close", (code: number | null) => {
       clearTimeout(timeout);
+      signal?.removeEventListener("abort", onAbort);
       console.log(`[Agent] Exited with code ${code}`);
+
+      // If we were aborted, the reject was already called — don't double-reject
+      if (signal?.aborted) return;
 
       const result = stdout.trim() || stderr.trim();
       if (code !== 0 && !stdout.trim()) {
@@ -119,7 +147,8 @@ export async function executeAgentTask(
 
     child.on("error", (err: Error) => {
       clearTimeout(timeout);
-      reject(err);
+      signal?.removeEventListener("abort", onAbort);
+      if (!signal?.aborted) reject(err);
     });
   });
 }

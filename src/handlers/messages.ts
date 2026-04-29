@@ -1,7 +1,16 @@
 /**
- * handlers/messages.ts — Core message handler.
+ * handlers/messages.ts — Core message handler with preemptive queue.
  *
- * Orchestrates: extract → route → recall memory → agent execution → reply.
+ * Flow per incoming message:
+ *  1. Extract query (text / voice / photo)
+ *  2. Determine route (model selection)
+ *  3. Notify user which model was selected
+ *  4. Store user message in memory
+ *  5. Recall conversation history
+ *  6. Enqueue in chatQueue:
+ *       - If the LLM is still answering the previous message → abort it,
+ *         send "⏩ Skipping…" to the user, run with the new query.
+ *       - If nothing is running → start immediately.
  */
 
 import type { Bot, Context } from "grammy";
@@ -13,6 +22,8 @@ import { SmartRouter } from "../router.js";
 import type { RouteResult } from "../router.js";
 import { executeAgentTask } from "../agent.js";
 import { memory } from "../memory.js";
+import { chatQueue } from "../services/chat-queue.js";
+import type { ChatTask } from "../services/chat-queue.js";
 
 export function registerMessageHandler(bot: Bot): void {
   bot.on(["message:text", "message:voice", "message:photo"], async (ctx: Context) => {
@@ -54,20 +65,61 @@ export function registerMessageHandler(bot: Bot): void {
 
     ctx.replyWithChatAction("typing").catch(() => {});
 
-    // 6. Execute agent
-    try {
-      const raw = await executeAgentTask(ctxPrefix + query, route, imagePath);
-
-      // Store assistant response (cleaned, for memory/history)
-      try { await memory.remember(cleanResponse(raw), { role: "assistant", chatId }); } catch (_) {}
-
-      // sendChunkedResponse handles its own cleaning + chunking
-      await sendChunkedResponse(ctx, raw);
-    } catch (err: any) {
-      console.error("[Agent]", err.message);
-      await handleAgentError(ctx, err, route, ctxPrefix, query, imagePath);
-    }
+    // 6. Enqueue — may abort a running LLM task for this chat
+    chatQueue.enqueue(
+      chatId,
+      { query, ctxPrefix, imagePath },
+      (task: ChatTask) => runAgentTask(ctx, task, route),
+      () => {
+        // Called when a previous task is being aborted
+        ctx.reply("⏩ Отменяю предыдущий запрос, обрабатываю новый…").catch(() => {});
+      },
+    );
   });
+}
+
+// ── Task runner (called by the queue) ──────────────────────────────
+
+async function runAgentTask(
+  ctx: Context,
+  task: ChatTask,
+  route: RouteResult,
+): Promise<void> {
+  // Keep the typing indicator alive while processing
+  const typingInterval = setInterval(() => {
+    ctx.replyWithChatAction("typing").catch(() => {});
+  }, 4000);
+
+  try {
+    const raw = await executeAgentTask(
+      task.ctxPrefix + task.query,
+      route,
+      task.imagePath,
+      task.signal,          // ← pass the abort signal
+    );
+
+    // If we got aborted between the LLM finishing and here, skip reply
+    if (task.signal.aborted) return;
+
+    // Store assistant response (cleaned, for memory/history)
+    const chatId = ctx.chat?.id ?? 0;
+    try { await memory.remember(cleanResponse(raw), { role: "assistant", chatId }); } catch (_) {}
+
+    // sendChunkedResponse handles its own cleaning + chunking
+    await sendChunkedResponse(ctx, raw);
+  } catch (err: any) {
+    // Suppress expected AbortError (user sent a newer message)
+    if (err?.name === "AbortError") {
+      console.log("[Agent] Task preempted — suppressing error");
+      return;
+    }
+
+    console.error("[Agent]", err.message);
+    const chatId = ctx.chat?.id ?? 0;
+    await handleAgentError(ctx, err, route, task.ctxPrefix, task.query, task.imagePath, task.signal);
+  } finally {
+    clearInterval(typingInterval);
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -110,6 +162,7 @@ async function handleAgentError(
   ctxPrefix: string,
   query: string,
   imagePath?: string,
+  signal?: AbortSignal,
 ): Promise<void> {
   // Local failure → try cloud fallback (but NOT for images — cloud doesn't support them)
   if (route.type === "local" && config.hasCloudAccess) {
@@ -126,9 +179,11 @@ async function handleAgentError(
         baseUrl: "https://api.deepseek.com/v1",
         apiKey: config.deepseekApiKey,
       };
-      const raw = await executeAgentTask(ctxPrefix + query, cr);
+      const raw = await executeAgentTask(ctxPrefix + query, cr, undefined, signal);
+      if (signal?.aborted) return;
       await sendChunkedResponse(ctx, raw);
     } catch (fbErr: any) {
+      if (fbErr?.name === "AbortError") return;
       await ctx.reply(`❌ Облако тоже не ответило: ${fbErr.message}`);
     }
   } else if (route.type === "local") {
