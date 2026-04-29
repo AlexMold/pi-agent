@@ -53,6 +53,10 @@ export async function executeAgentTask(
     } else {
       // Memory tool only for non-vision models (vision can't use tools)
       args.push("--extension", "/app/src/memory-tool.js");
+      // Calendar tool: create & list Google Calendar events
+      args.push("--extension", "/app/src/calendar-tool.js");
+      // Xiaomi Home tool
+      args.push("--extension", "/app/src/xiaomi-tool.js");
     }
 
     if (isHostOllama) {

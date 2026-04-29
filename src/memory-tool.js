@@ -61,7 +61,7 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
       },
       required: ["query"],
     },
-    execute: async (params) => {
+    execute: async (toolCallId, params) => {
       const { query, role, limit = 5, sort = "relevant" } = params;
 
       try {

@@ -10,3 +10,7 @@ output
 uploads
 workspace/
 memory_db/
+
+# Credentials
+credentials/
+auth.json
