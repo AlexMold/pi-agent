@@ -37,8 +37,8 @@ export default function (pi) {
 - power: вкл/выкл (true/false)
 - status: получить текущее состояние, заряд батареи и прочее
 - probe: сделать глубокий скан всех скрытых параметров устройства (MIOT)
-- set_mode: режим работы (например: 0, 1, 2, 3 или quiet, standard, turbo)
-- set_water: уровень воды для швабры (например: 1, 2, 3 или low, medium, high)
+- set_mode: мощность всасывания (silent, standard, strong, turbo)
+- set_water: уровень воды для швабры (low, medium, high)
 - set_dnd: режим не беспокоить (true/false)
 - set_bright: яркость (1-100)
 - set_temp: температура
@@ -207,11 +207,14 @@ export default function (pi) {
             let modeVal = Number(value);
             if (isNaN(modeVal)) {
               const v = String(value).toLowerCase();
-              if (v.includes("quiet")) modeVal = 0;
-              else if (v.includes("standard")) modeVal = 1;
-              else if (v.includes("medium")) modeVal = 2;
-              else if (v.includes("turbo") || v.includes("strong")) modeVal = 3;
-              else modeVal = 1;
+              if (v.includes("quiet") || v.includes("silent") || v.includes("min")) modeVal = 1;
+              else if (v.includes("standard") || v.includes("normal")) modeVal = 0;
+              else if (v.includes("strong") || v.includes("medium")) modeVal = 2;
+              else if (v.includes("turbo") || v.includes("max")) modeVal = 3;
+              else modeVal = 0;
+            } else {
+               // If agent sends 0 thinking it's min, but 0 is standard, let's remap logic just in case,
+               // but it's better to rely on strings.
             }
             await device.call("set_properties", [
               {
