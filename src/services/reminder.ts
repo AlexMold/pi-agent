@@ -78,7 +78,18 @@ class ReminderManager {
     try {
       const data = await fs.readFile(this.dbPath, "utf-8");
       this.reminders = JSON.parse(data);
-      console.log(`[Reminder] Reloaded ${this.reminders.length} reminders from disk`);
+      if (this.reminders.length === 0) {
+        console.log(`[Reminder] Reloaded 0 reminders from disk`);
+      } else {
+        const now = Date.now();
+        for (const r of this.reminders) {
+          const msLeft = r.dueAt - now;
+          const secLeft = Math.round(msLeft / 1000);
+          console.log(
+            `[Reminder DB] id=${r.id} chatId=${r.chatId} text="${r.text.slice(0, 50)}" dueAt=${new Date(r.dueAt).toISOString()} secLeft=${secLeft}s now=${new Date(now).toISOString()}`,
+          );
+        }
+      }
     } catch {
       // File missing or corrupt — keep in-memory state
     }
