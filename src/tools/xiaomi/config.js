@@ -1,13 +1,29 @@
 import fs from "fs";
-
 import path from "path";
 
-// The config is in credentials/xiaomi_devices.json
-const CONFIG_PATH = path.join(process.cwd(), "credentials", "xiaomi_devices.json");
+// Config location: try cwd/credentials (Docker: /app/workspace/credentials),
+// then /app/credentials (docker-compose mount), then CREDENTIALS_DIR env var.
+function resolveConfigPath() {
+  const envPath = process.env.CREDENTIALS_DIR
+    ? path.join(process.env.CREDENTIALS_DIR, "xiaomi_devices.json")
+    : null;
+
+  const candidates = [
+    envPath,
+    path.join(process.cwd(), "credentials", "xiaomi_devices.json"),
+    path.join("/app/credentials", "xiaomi_devices.json"),
+    path.join(process.cwd(), "..", "credentials", "xiaomi_devices.json"),
+  ].filter(Boolean);
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  throw new Error(
+    `Config file not found. Tried:\n${candidates.map((c) => `  - ${c}`).join("\n")}`,
+  );
+}
 
 export function loadDevices() {
-  if (!fs.existsSync(CONFIG_PATH)) {
-    throw new Error(`Config file not found at ${CONFIG_PATH}`);
-  }
-  return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8"));
+  const configPath = resolveConfigPath();
+  return JSON.parse(fs.readFileSync(configPath, "utf-8"));
 }

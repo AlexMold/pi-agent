@@ -9,7 +9,7 @@ export default function (pi) {
   try {
     devices = loadDevices();
   } catch (err) {
-    console.error("[Xiaomi Tool] Could not load devices config:", err.message);
+    console.warn("[Xiaomi Tool] Devices config not available:", err.message);
     return;
   }
 
@@ -36,10 +36,6 @@ export default function (pi) {
       },
     },
     execute: async (toolCallId, args) => {
-      console.log(`\n\n=== [XIAOMI DEBUG] EXECUTION STARTED ===`);
-      console.log(`[XIAOMI DEBUG] callId:`, toolCallId);
-      console.log(`[XIAOMI DEBUG] raw args:`, JSON.stringify(args, null, 2));
-
       let { deviceId, command, value } = args;
 
       if (value === "true") value = true;
@@ -62,13 +58,7 @@ export default function (pi) {
 
       let device;
       try {
-        console.log(
-          `[Xiaomi Tool] Connecting to ${config.ip} with token ${config.token}...`,
-        );
         device = await miio.device({ address: config.ip, token: config.token });
-        console.log(
-          `[Xiaomi Tool] Connected to ${config.name}. Executing ${command}(${value})...`,
-        );
 
         if (command === "status" || command === "get_status") {
           return await handleStatus(device, config);
@@ -104,10 +94,7 @@ export default function (pi) {
           ],
         };
       } catch (err) {
-        console.error(
-          `[Xiaomi Tool] Error communicating with ${config.name}:`,
-          err,
-        );
+        console.error(`[Xiaomi Tool] Error with ${config.name}:`, err.message);
         return {
           content: [
             {
