@@ -48,6 +48,7 @@ class ReminderManager {
     };
     this.reminders.push(reminder);
     await this.save();
+    console.log(`[Reminder] CREATED: id=${reminder.id} chatId=${chatId} text="${text.slice(0, 60)}" dueAt=${new Date(dueAt).toISOString()}`);
     return reminder;
   }
 
@@ -63,7 +64,13 @@ class ReminderManager {
   /** Return all reminders whose due time has passed. */
   getDue(): Reminder[] {
     const now = Date.now();
-    return this.reminders.filter((r) => r.dueAt <= now);
+    const due = this.reminders.filter((r) => r.dueAt <= now);
+    if (due.length > 0) {
+      for (const r of due) {
+        console.log(`[Reminder] DUE: id=${r.id} chatId=${r.chatId} text="${r.text.slice(0, 50)}" dueAt=${new Date(r.dueAt).toISOString()} now=${new Date(now).toISOString()}`);
+      }
+    }
+    return due;
   }
 
   /** Send notifications for all due reminders and remove them. */

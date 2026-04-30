@@ -75,9 +75,10 @@ bot.start({
 // ── Cron jobs ──────────────────────────────────────────────────────
 
 // Каждую минуту — проверка напоминаний
-new Cron("* * * * *", { timezone: "Europe/Chisinau" }, () =>
-  reminderManager.notifyDue(),
-);
+new Cron("* * * * *", { timezone: "Europe/Chisinau" }, () => {
+  console.log("[Cron] Checking reminders...");
+  reminderManager.notifyDue();
+});
 
 // Каждый день в 4 утра — бэкап
 new Cron("0 6 * * *", { timezone: "Europe/Chisinau" }, () => runBackup());

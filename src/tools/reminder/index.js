@@ -61,9 +61,13 @@ Chat ID is inferred from context — do not ask for it.`,
       required: ["text", "delay"],
     },
     execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
+      console.log(`[Reminder Tool] set_reminder called with params: ${JSON.stringify(params)}`);
+
       // Extract chat_id from the first user message (<chat_id>N</chat_id>)
       const chatId = extractChatId(ctx);
+      console.log(`[Reminder Tool] extracted chatId: ${chatId}`);
       if (!chatId) {
+        console.log(`[Reminder Tool] FAILED: no chatId`);
         return {
           content: [
             {
@@ -79,6 +83,7 @@ Chat ID is inferred from context — do not ask for it.`,
 
       // Parse delay string
       const now = Date.now();
+      console.log(`[Reminder Tool] now=${now}, text="${text}", delay="${delay}"`);
       const match = delay.match(/^(\d+)(m|h|d)$/);
       if (match) {
         const value = parseInt(match[1], 10);
@@ -121,6 +126,7 @@ Chat ID is inferred from context — do not ask for it.`,
 
       try {
         const reminder = await reminderManager.add(chatId, text, dueAt);
+        console.log(`[Reminder Tool] REMINDER STORED: id=${reminder.id}, chatId=${chatId}, dueAt=${new Date(dueAt).toISOString()}`);
         const timeStr = new Date(dueAt).toLocaleString("ru-RU", {
           dateStyle: "short",
           timeStyle: "short",

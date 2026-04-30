@@ -115,7 +115,12 @@ export async function executeAgentTask(
     signal?.addEventListener("abort", onAbort, { once: true });
 
     child.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+      // Log live output so we can see what Pi is doing
+      for (const line of chunk.split("\n").filter(Boolean)) {
+        console.log(`[Pi STDOUT] ${line}`);
+      }
     });
 
     child.stderr.on("data", (data: Buffer) => {
