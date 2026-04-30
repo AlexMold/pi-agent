@@ -15,20 +15,28 @@ interface Message {
   text: string;
 }
 
-// ── Ring buffer for recent messages ──────────────────────────────────
-const MAX_RECENT = 20;
-const recentByChat = new Map<number, Message[]>();
+interface TimedMessage extends Message {
+  timestamp: number;
+}
 
-function pushRecent(chatId: number, msg: Message) {
+// ── Ring buffer for recent messages ──────────────────────────────────
+const MAX_RECENT = 100;
+const recentByChat = new Map<number, TimedMessage[]>();
+
+function pushRecent(chatId: number, msg: TimedMessage) {
   const list = recentByChat.get(chatId) || [];
   list.push(msg);
   if (list.length > MAX_RECENT) list.shift();
   recentByChat.set(chatId, list);
 }
 
-function getRecent(chatId: number, n = 5): Message[] {
+/** Return messages within the last `rangeMs` milliseconds. */
+function getRecentInRange(chatId: number, rangeMs: number): TimedMessage[] {
   const list = recentByChat.get(chatId) || [];
-  return list.slice(-n);
+  if (list.length === 0) return [];
+  const cutoff = Date.now() - rangeMs;
+  // Filter and return chronological order (oldest first)
+  return list.filter((m) => m.timestamp >= cutoff);
 }
 
 // ── LanceDB for long-term semantic memory ────────────────────────────
@@ -68,7 +76,11 @@ export class LongTermMemory {
     metadata: { role: string; chatId: number; timestamp?: number },
   ): Promise<void> {
     // Ring buffer (always works, no async dependency)
-    pushRecent(metadata.chatId, { role: metadata.role, text });
+    pushRecent(metadata.chatId, {
+      role: metadata.role,
+      text,
+      timestamp: metadata.timestamp || Date.now(),
+    });
 
     // LanceDB (semantic long-term)
     if (!this.initialized) await this.init();
@@ -90,20 +102,20 @@ export class LongTermMemory {
 
   /**
    * Hybrid recall:
-   *  - N recent messages (always, chronological)
+   *  - Recent messages within time window (always, chronological)
    *  - K semantic matches (LanceDB)
    * Deduplicated, recent first.
    */
   async recall(
     query: string,
     chatId: number,
-    recentN = 4,
+    timeRangeMs = 30 * 60 * 1000,
     semanticK = 4,
   ): Promise<Message[]> {
     const results: Message[] = [];
 
-    // 1. Recent messages (always)
-    const recent = getRecent(chatId, recentN);
+    // 1. Recent messages within time window
+    const recent = getRecentInRange(chatId, timeRangeMs);
     results.push(...recent);
 
     // 2. Semantic search

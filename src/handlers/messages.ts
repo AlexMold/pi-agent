@@ -54,7 +54,7 @@ export function registerMessageHandler(bot: Bot): void {
     // 5. Recall conversation history
     let ctxPrefix = "";
     try {
-      const past = await memory.recall(query, chatId, 4, 4);
+      const past = await memory.recall(query, chatId, 30 * 60 * 1000, 4);
       if (past.length > 0) {
         ctxPrefix =
           `<conversation_history>\n` +
