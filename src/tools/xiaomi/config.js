@@ -1,7 +1,9 @@
 import fs from "fs";
 
-// The config is in .pi/agent/config/xiaomi_devices.json mounted to /root/.pi/agent/config in Docker
-const CONFIG_PATH = "/root/.pi/agent/config/xiaomi_devices.json";
+import path from "path";
+
+// The config is in credentials/xiaomi_devices.json
+const CONFIG_PATH = path.join(process.cwd(), "credentials", "xiaomi_devices.json");
 
 export function loadDevices() {
   if (!fs.existsSync(CONFIG_PATH)) {

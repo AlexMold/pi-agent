@@ -20,6 +20,8 @@ import { registerCommands } from "./handlers/commands.js";
 import { registerCallbacks } from "./handlers/callbacks.js";
 import { registerMessageHandler } from "./handlers/messages.js";
 import { memory } from "./memory.js";
+import { Cron } from "croner";
+import { runBackup } from "./tools/backup.js";
 
 // ── Init ──────────────────────────────────────────────────────────
 
@@ -31,15 +33,10 @@ await memory.init().catch((err) => console.error("[Memory] Init failed:", err));
 
 bot.use(async (ctx, next) => {
   const userId = ctx.from?.id;
-  if (
-    userId &&
-    userId !== config.allowedUserId &&
-    config.allowedUserId !== 0
-  ) {
-    await ctx.reply(
-      `⛔ Доступ запрещён. ID: <code>${userId}</code>`,
-      { parse_mode: "HTML" },
-    );
+  if (userId && userId !== config.allowedUserId && config.allowedUserId !== 0) {
+    await ctx.reply(`⛔ Доступ запрещён. ID: <code>${userId}</code>`, {
+      parse_mode: "HTML",
+    });
     console.warn(`[Security] Blocked user ${userId}`);
     return;
   }
@@ -72,6 +69,9 @@ bot.start({
     console.log(`   Allowed user: ${config.allowedUserId || "any"}`);
   },
 });
+
+// Запуск каждый день в 4 утра
+new Cron("0 6 * * *", { timezone: "Europe/Chisinau" }, () => runBackup());
 
 const shutdown = () => {
   bot.stop();

@@ -1,6 +1,6 @@
 # AI Assistant Pro
 
-## Архитектура
+## Architecture
 
 ```
 User (Telegram) → grammY Bot → SmartRouter → Pi-Agent → Response
@@ -14,19 +14,19 @@ User (Telegram) → grammY Bot → SmartRouter → Pi-Agent → Response
                               (LanceDB + Ollama embeddings)
 ```
 
-## Компоненты
+## Components
 
-| Файл | Назначение |
-|------|------------|
-| `src/bot.ts` | Telegram бот (grammY) — основной оркестратор |
-| `src/router.ts` | FinOps-роутер: выбирает локально/облако |
-| `src/memory.ts` | Векторная память на LanceDB |
-| `src/agent.ts` | Запуск Pi-Agent в песочнице |
-| `src/stt.ts` | Whisper.cpp клиент для голосовых |
+| File | Purpose |
+|------|---------|
+| `src/bot.ts` | Telegram bot (grammY) — main orchestrator |
+| `src/router.ts` | FinOps router: chooses between local/cloud |
+| `src/memory.ts` | Vector memory using LanceDB |
+| `src/agent.ts` | Pi-Agent runner in a sandbox |
+| `src/stt.ts` | Whisper.cpp client for voice messages |
 
-## Быстрый старт
+## Quick Start
 
-### 1. Хост: запустить Ollama
+### 1. Host: Start Ollama
 ```bash
 ollama serve
 ollama pull deepseek-v4-distill-32b
@@ -34,12 +34,12 @@ ollama pull gemma4:31b
 ollama pull nomic-embed-text
 ```
 
-### 2. Хост: запустить Whisper.cpp сервер
+### 2. Host: Start Whisper.cpp server
 ```bash
 ./whisper-server -m models/ggml-large-v3.bin --port 8080
 ```
 
-### 3. Создать .env с ключами
+### 3. Create .env with keys
 ```env
 TELEGRAM_TOKEN=...
 DEEPSEEK_API_KEY=...
@@ -52,12 +52,12 @@ docker compose up --build -d
 docker compose logs -f
 ```
 
-### 5. Тест
-Отправь в Telegram:
-> Пи, найди последние тренды в Node.js 2026 и напиши пример использования новой фичи в файле trend.js
+### 5. Test
+Send to Telegram:
+> Pi, find the latest trends in Node.js 2026 and write an example of using a new feature in the file trend.js
 
-## FinOps логика
+## FinOps Logic
 
-- **≤100k токенов + простой запрос** → локальный DeepSeek Distill 32B (CAPEX = $0)
-- **>100k токенов ИЛИ keywords** → облачный DeepSeek V4 Pro (OPEX)
-- **Локальный сбой** → автоматический fallback на облако
+- **≤100k tokens + simple request** → local DeepSeek Distill 32B (CAPEX = $0)
+- **>100k tokens OR keywords** → cloud DeepSeek V4 Pro (OPEX)
+- **Local failure** → automatic fallback to cloud
