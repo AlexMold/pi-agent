@@ -75,6 +75,7 @@ class ReminderManager {
 
   /** Send notifications for all due reminders and remove them. */
   async notifyDue(): Promise<void> {
+    console.log(`[Reminder] Checking for due reminders at ${new Date().toISOString()}...`, this.bot ? "Bot ready" : "Bot NOT ready");
     if (!this.bot) return;
     const due = this.getDue();
     if (due.length === 0) return;
