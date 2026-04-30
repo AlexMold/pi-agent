@@ -64,7 +64,7 @@ class ReminderManager {
   /** Return all reminders whose due time has passed. */
   getDue(): Reminder[] {
     const now = Date.now();
-    const due = this.reminders.filter((r) => r.dueAt <= now);
+    const due = this.reminders.filter((r) => r.dueAt <= now && (now - r.dueAt) < 60 * 1000);
     if (due.length > 0) {
       for (const r of due) {
         console.log(`[Reminder] DUE: id=${r.id} chatId=${r.chatId} text="${r.text.slice(0, 50)}" dueAt=${new Date(r.dueAt).toISOString()} now=${new Date(now).toISOString()}`);
