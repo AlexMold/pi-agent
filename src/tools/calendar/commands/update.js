@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { format } from "date-fns";
 import { buildAuth, CALENDAR_ID, DEFAULT_TZ } from "../auth.js";
 import { UpdateEventSchema, formatZodError } from "../schemas.js";
 
@@ -80,11 +81,7 @@ Only the fields you provide will be changed — omitted fields stay as-is.`,
       const updated = res.data;
       const rawStart = updated.start?.dateTime || updated.start?.date || "";
       const startFmt = rawStart
-        ? new Date(rawStart).toLocaleString("ru-RU", {
-            timeZone: DEFAULT_TZ,
-            dateStyle: "medium",
-            timeStyle: "short",
-          })
+        ? format(new Date(rawStart), "dd.MM.yyyy, HH:mm")
         : "";
       const link = updated.htmlLink || "https://calendar.google.com";
 

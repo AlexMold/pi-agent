@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { format } from "date-fns";
 import { buildAuth, CALENDAR_ID, DEFAULT_TZ } from "../auth.js";
 import { ManageCalendarSchema, formatZodError } from "../schemas.js";
 
@@ -71,11 +72,7 @@ You can specify recurrences, like ["RRULE:FREQ=WEEKLY;COUNT=10"].`,
 
       const created = res.data;
       const link = created.htmlLink || "https://calendar.google.com";
-      const startFmt = new Date(start).toLocaleString("ru-RU", {
-        timeZone: DEFAULT_TZ,
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
+      const startFmt = format(new Date(start), "dd.MM.yyyy, HH:mm");
 
       let responseText = `✅ Событие создано!\n📅 *${created.summary}*\n🕐 ${startFmt} (${DEFAULT_TZ})`;
       if (recurrence) responseText += `\n🔄 Повторение: ${recurrence.join(", ")}`;

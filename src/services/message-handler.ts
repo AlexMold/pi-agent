@@ -5,6 +5,7 @@
  * Returns the transcribed/extracted query and optional image path.
  */
 
+import { format } from "date-fns";
 import type { Context } from "grammy";
 import { transcribeAudio } from "../stt.js";
 import { writeFile } from "fs/promises";
@@ -50,7 +51,7 @@ export async function extractMessage(
       const url = `https://api.telegram.org/file/bot${config.telegramToken}/${file.file_path}`;
       const res = await fetch(url);
       const buf = Buffer.from(await res.arrayBuffer());
-      const filename = `photo_${Date.now()}.jpg`;
+      const filename = `photo_${format(new Date(), "yyyyMMddHHmmssSSS")}.jpg`;
       const fullPath = join("/app/workspace", filename);
       await writeFile(fullPath, buf);
       const query = ctx.message.caption || "Опиши это изображение";

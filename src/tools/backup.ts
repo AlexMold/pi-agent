@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { format } from "date-fns";
 import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
@@ -14,7 +15,7 @@ const s3 = new S3Client({
 });
 
 export async function runBackup() {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const timestamp = format(new Date(), "yyyy-MM-dd-HH-mm-ss-SSS");
   const fileName = `backup-${timestamp}.tar.gz`;
   const backupPath = path.join("/tmp", fileName);
   const sourceDir = path.join(process.env.HOME!, ".pi/agent");

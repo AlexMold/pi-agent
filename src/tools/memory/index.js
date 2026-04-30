@@ -6,6 +6,7 @@
  */
 
 import * as lancedb from "@lancedb/lancedb";
+import { format } from "date-fns";
 
 const OLLAMA_BASE = process.env.OLLAMA_HOST || "host.docker.internal:11434";
 
@@ -105,7 +106,7 @@ Supports filtering by role (user/assistant), sorting by timestamp, grouping by t
         const formatted = results
           .map((r) => {
             const date = r.timestamp
-              ? new Date(r.timestamp).toISOString().replace("T", " ").slice(0, 19)
+              ? format(new Date(r.timestamp), "yyyy-MM-dd HH:mm:ss")
               : "unknown time";
             return `[${date}] [${r.role}]: ${r.text}`;
           })

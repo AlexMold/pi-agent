@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { format, addDays } from "date-fns";
 import { buildAuth, CALENDAR_ID, DEFAULT_TZ } from "../auth.js";
 import { ListEventsSchema, formatZodError } from "../schemas.js";
 
@@ -46,7 +47,7 @@ Returns events sorted by start time including their IDs — required for update_
       const calendar = google.calendar({ version: "v3", auth });
 
       const now = new Date();
-      const weekLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const weekLater = addDays(now, 7);
 
       const res = await calendar.events.list({
         calendarId: CALENDAR_ID,
@@ -68,11 +69,7 @@ Returns events sorted by start time including their IDs — required for update_
 
       const lines = events.map((e) => {
         const start = e.start.dateTime || e.start.date;
-        const formatted = new Date(start).toLocaleString("ru-RU", {
-          timeZone: DEFAULT_TZ,
-          dateStyle: "short",
-          timeStyle: "short",
-        });
+        const formatted = format(new Date(start), "dd.MM.yy, HH:mm");
         return `• [${e.id}] ${formatted} — *${e.summary || "(без названия)"}*`;
       });
 
