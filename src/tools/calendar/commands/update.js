@@ -72,10 +72,10 @@ Only the fields you provide will be changed — omitted fields stay as-is.`,
       if (end !== undefined)
         patch.end = { dateTime: end, timeZone: DEFAULT_TZ };
 
-      // Всегда добавляем уведомление за 10 минут
+      // Всегда добавляем уведомление за 5 минут
       patch.reminders = {
         useDefault: false,
-        overrides: [{ method: "popup", minutes: 10 }],
+        overrides: [{ method: "popup", minutes: 5 }],
       };
 
       const res = await calendar.events.patch({
