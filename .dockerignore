@@ -1,14 +1,43 @@
+# Dependencies
 node_modules
+
+# Build artifacts
 dist
+*.tsbuildinfo
+
+# Git
 .git
+
+# Pi agent internals
 .pi
 .ralph
+
+# Secrets & config
 .env
+.env.*
+credentials/
+*.pem
+*.key
+
+# Logs & coverage
 logs
 *.log
-output
-uploads
+coverage/
+
+# Runtime data (volume-mounted)
 workspace/*
 !workspace/.gitkeep
 memory_db/*
 !memory_db/.gitkeep
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temp files
+output
+uploads
+tmp/
+temp/

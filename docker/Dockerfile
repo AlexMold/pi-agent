@@ -1,30 +1,39 @@
-# ── AI Assistant Pro ──────────────────────────────────────────────────
-# Base: Node 24 for full ESM + modern features.
-# Runs the bot inside Docker; Ollama & Whisper stay on host for Metal/NPU.
+# ── AI Assistant Pro ────────────────────────────────────────────────
+# syntax=docker/dockerfile:1
+#
+# BuildKit cache mounts speed up repeated builds:
+#   apt  cache → /var/cache/apt   (survives between builds)
+#   npm  cache → /root/.npm       (survives between builds)
+#
+# Run with: DOCKER_BUILDKIT=1 docker compose build
+# BuildKit is the default in Docker ≥ 23.x.
 
 FROM node:24.13.0-slim
 
 WORKDIR /app
 
-# Install system dependencies (for LanceDB native bindings + ffmpeg for audio conversion)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake \
-    build-essential \
-    ffmpeg \
+# ── System dependencies (rarely changes — cached aggressively) ─────
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+      cmake \
+      build-essential \
+      ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy deps first for layer caching
-COPY package*.json ./
-COPY tsconfig.json ./
+# ── npm dependencies (only invalidates when package*.json changes) ──
+COPY package*.json tsconfig.json ./
 
-RUN npm ci && npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline
 
-# Copy source code
+# ── Source code (changes most often — placed last) ──────────────────
 COPY src/ ./src/
+
+# ── Static config (rarely changes) ──────────────────────────────────
 COPY models.json ./
 
-# Create workspace & memory directories
+# ── Runtime directories ─────────────────────────────────────────────
 RUN mkdir -p /app/workspace /app/memory_db
 
-# Default: run bot via ts-node (ESM)
 CMD ["node", "--loader", "ts-node/esm", "src/bot.ts"]
