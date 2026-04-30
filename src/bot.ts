@@ -20,6 +20,7 @@ import { registerCommands } from "./handlers/commands.js";
 import { registerCallbacks } from "./handlers/callbacks.js";
 import { registerMessageHandler } from "./handlers/messages.js";
 import { memory } from "./memory.js";
+import { reminderManager } from "./services/reminder.js";
 import { Cron } from "croner";
 import { runBackup } from "./tools/backup.js";
 
@@ -28,6 +29,7 @@ import { runBackup } from "./tools/backup.js";
 const bot = new Bot(config.telegramToken);
 
 await memory.init().catch((err) => console.error("[Memory] Init failed:", err));
+await reminderManager.init(bot).catch((err) => console.error("[Reminder] Init failed:", err));
 
 // ── Auth middleware ────────────────────────────────────────────────
 
@@ -70,7 +72,14 @@ bot.start({
   },
 });
 
-// Запуск каждый день в 4 утра
+// ── Cron jobs ──────────────────────────────────────────────────────
+
+// Каждую минуту — проверка напоминаний
+new Cron("* * * * *", { timezone: "Europe/Chisinau" }, () =>
+  reminderManager.notifyDue(),
+);
+
+// Каждый день в 4 утра — бэкап
 new Cron("0 6 * * *", { timezone: "Europe/Chisinau" }, () => runBackup());
 
 const shutdown = () => {

@@ -57,6 +57,8 @@ export async function executeAgentTask(
       args.push("--extension", "/app/src/tools/calendar/index.js");
       // Xiaomi Home tool
       args.push("--extension", "/app/src/tools/xiaomi/index.js");
+      // Reminder tool: set / list / delete reminders
+      args.push("--extension", "/app/src/tools/reminder/index.js");
     }
 
     if (isHostOllama) {
