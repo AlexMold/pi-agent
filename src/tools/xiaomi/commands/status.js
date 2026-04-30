@@ -1,5 +1,5 @@
 export async function handleStatus(device, config) {
-  let statusInfo = {};
+  let statusInfo;
   try {
     statusInfo = await device.call("get_status", []);
   } catch (e) {
