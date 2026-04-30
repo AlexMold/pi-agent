@@ -36,4 +36,4 @@ COPY models.json ./
 # ── Runtime directories ─────────────────────────────────────────────
 RUN mkdir -p /app/workspace /app/memory_db
 
-CMD ["node", "--import", "ts-node/esm", "src/bot.ts"]
+CMD ["node", "--loader", "ts-node/esm", "--no-warnings", "src/bot.ts"]
