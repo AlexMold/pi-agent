@@ -7,6 +7,29 @@
 
 import { reminderManager } from "../../services/reminder.js";
 
+/**
+ * Extract Telegram chat_id from the session.
+ * The bot injects `<chat_id>N</chat_id>` into the first message.
+ */
+function extractChatId(ctx) {
+  try {
+    const entries = ctx?.sessionManager?.getEntries?.();
+    if (!entries) return null;
+    for (const entry of entries) {
+      const text =
+        entry.message?.content
+          ?.map((c) => (typeof c === "string" ? c : c.text))
+          .filter(Boolean)
+          .join(" ") || "";
+      const match = text.match(/<chat_id>(\d+)<\/chat_id>/);
+      if (match) return parseInt(match[1], 10);
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export default function (pi) {
   // ── Create reminder ────────────────────────────────────────────
   pi.registerTool({
@@ -31,7 +54,8 @@ Chat ID is inferred from context — do not ask for it.`,
       required: ["text", "delay"],
     },
     execute: async (_toolCallId, params, _signal, _onUpdate, ctx) => {
-      const chatId = ctx?.sessionManager?.getBranch?.()?.[0]?.chatId;
+      // Extract chat_id from the first user message (<chat_id>N</chat_id>)
+      const chatId = extractChatId(ctx);
       if (!chatId) {
         return {
           content: [
@@ -126,7 +150,7 @@ Use when user asks "какие у меня напоминания", "что я �
       required: [],
     },
     execute: async (_toolCallId, _params, _signal, _onUpdate, ctx) => {
-      const chatId = ctx?.sessionManager?.getBranch?.()?.[0]?.chatId;
+      const chatId = extractChatId(ctx);
       if (!chatId) {
         return { content: [{ type: "text", text: "❌ Не удалось определить пользователя." }] };
       }

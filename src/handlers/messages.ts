@@ -52,11 +52,11 @@ export function registerMessageHandler(bot: Bot): void {
     try { await memory.remember(query, { role: "user", chatId }); } catch (_) {}
 
     // 5. Recall conversation history
-    let ctxPrefix = "";
+    let ctxPrefix = `<chat_id>${chatId}</chat_id>\n\n`;
     try {
       const past = await memory.recall(query, chatId, 30 * 60 * 1000, 4);
       if (past.length > 0) {
-        ctxPrefix =
+        ctxPrefix +=
           `<conversation_history>\n` +
           past.map((m, i) => `${i + 1}. [${m.role}]: ${m.text}`).join("\n") +
           `\n</conversation_history>\n\n`;
