@@ -73,9 +73,21 @@ class ReminderManager {
     return due;
   }
 
+  /** Reload reminders from disk (main process may be out of sync with Pi child process). */
+  private async reload(): Promise<void> {
+    try {
+      const data = await fs.readFile(this.dbPath, "utf-8");
+      this.reminders = JSON.parse(data);
+      console.log(`[Reminder] Reloaded ${this.reminders.length} reminders from disk`);
+    } catch {
+      // File missing or corrupt — keep in-memory state
+    }
+  }
+
   /** Send notifications for all due reminders and remove them. */
   async notifyDue(): Promise<void> {
-    console.log(`[Reminder] Checking for due reminders at ${new Date().toISOString()}...`, this.bot ? "Bot ready" : "Bot NOT ready");
+    // Reload from disk — Pi child process may have added reminders
+    await this.reload();
     if (!this.bot) return;
     const due = this.getDue();
     if (due.length === 0) return;
@@ -114,7 +126,6 @@ class ReminderManager {
   }
 
   private async save(): Promise<void> {
-    if (!this.loaded) return;
     try {
       await fs.writeFile(this.dbPath, JSON.stringify(this.reminders, null, 2));
     } catch (err) {
