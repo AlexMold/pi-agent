@@ -66,7 +66,7 @@ export async function executeAgentTask(
     }
 
     if (route.type === "cloud") {
-      args.unshift("--thinking", "high");
+      args.unshift("--thinking", "medium");
     }
 
     // Prompt and --print flag must come last
