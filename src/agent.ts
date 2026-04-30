@@ -44,7 +44,6 @@ export async function executeAgentTask(
       "/app/src/tools/search/index.js",
       "--no-skills",
       "--no-themes",
-      "--no-context-files",
     ];
 
     const isVision = route.model.includes("minicpm");

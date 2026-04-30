@@ -38,6 +38,13 @@ export default function (pi) {
 Use when user says "напомни через 10 минут", "напомни в 19:00", "поставь таймер на 30 минут".
 Time format: "10m" (minutes), "2h" (hours), "1d" (days), or absolute: "HH:MM" (today) or "YYYY-MM-DD HH:MM".
 Chat ID is inferred from context — do not ask for it.`,
+    promptSnippet: "Set reminders with relative or absolute time",
+    promptGuidelines: [
+      "Use set_reminder when the user asks to be reminded about something at a specific time or after a delay.",
+      "Parse the delay: 'через X минут/часов/дней' → 'Xm', 'Xh', 'Xd'.",
+      "For 'в HH:MM' format, if the time is already past today, schedule for tomorrow.",
+      "Always call the tool — do NOT just confirm verbally without actually creating the reminder.",
+    ],
     parameters: {
       type: "object",
       properties: {
@@ -144,6 +151,11 @@ Chat ID is inferred from context — do not ask for it.`,
     name: "list_reminders",
     description: `List all pending reminders for the current user.
 Use when user asks "какие у меня напоминания", "что я просил напомнить", "покажи таймеры".`,
+    promptSnippet: "List pending reminders",
+    promptGuidelines: [
+      "Use list_reminders when the user asks what reminders are set.",
+      "Returns reminders with IDs — use the ID with delete_reminder.",
+    ],
     parameters: {
       type: "object",
       properties: {},
@@ -187,6 +199,11 @@ Use when user asks "какие у меня напоминания", "что я �
     description: `Delete a pending reminder by its ID.
 Use after list_reminders to get the ID, then call this tool.
 Use when user says "удали напоминание", "отмени таймер", "убери напоминание про ...".`,
+    promptSnippet: "Delete a reminder by ID",
+    promptGuidelines: [
+      "Use delete_reminder when the user wants to cancel a reminder.",
+      "First call list_reminders to get the ID, then call delete_reminder with that ID.",
+    ],
     parameters: {
       type: "object",
       properties: {
