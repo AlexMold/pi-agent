@@ -67,6 +67,11 @@ You can specify recurrences, like ["RRULE:FREQ=WEEKLY;COUNT=10"].`,
           ...(description && { description }),
           ...(location && { location }),
           ...(recurrence && { recurrence }),
+          // Всегда добавляем уведомление за 10 минут
+          reminders: {
+            useDefault: false,
+            overrides: [{ method: "popup", minutes: 10 }],
+          },
         },
       });
 
