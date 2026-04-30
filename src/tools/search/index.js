@@ -40,7 +40,8 @@ export default function (pi) {
         },
         required: ["query"],
       },
-      execute: async ({ query }) => {
+      execute: async (_toolCallId, params) => {
+        const { query } = params || {};
         try {
           const res = await httpRequest("https://google.serper.dev/search", {
             method: "POST",
@@ -75,7 +76,8 @@ export default function (pi) {
         },
         required: ["query"],
       },
-      execute: async ({ query }) => {
+      execute: async (_toolCallId, params) => {
+        const { query } = params || {};
         try {
           const res = await httpRequest("https://api.tavily.com/search", {
             method: "POST",
