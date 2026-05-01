@@ -80,8 +80,8 @@ new Cron("* * * * *", { timezone: "Europe/Chisinau" }, () => {
   reminderManager.notifyDue();
 });
 
-// Каждый день в 4 утра — бэкап
-new Cron("0 6 * * *", { timezone: "Europe/Chisinau" }, () => runBackup());
+// Каждый понедельник в 6 утра — бэкап
+new Cron("0 6 * * 1", { timezone: "Europe/Chisinau" }, () => runBackup());
 
 const shutdown = () => {
   bot.stop();
