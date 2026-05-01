@@ -6,8 +6,9 @@
  *  2. Determine route (model selection)
  *  3. Notify user which model was selected
  *  4. Store user message in memory
- *  5. Recall conversation history
- *  6. Enqueue in chatQueue:
+ *  5. Capture replied-to message from Telegram
+ *  6. Recall conversation history
+ *  7. Enqueue in chatQueue:
  *       - If the LLM is still answering the previous message → abort it,
  *         send "⏩ Skipping…" to the user, run with the new query.
  *       - If nothing is running → start immediately.
@@ -51,8 +52,24 @@ export function registerMessageHandler(bot: Bot): void {
     // 4. Store user message in memory (fire-and-forget)
     try { await memory.remember(query, { role: "user", chatId }); } catch (_) {}
 
-    // 5. Recall conversation history
-    let ctxPrefix = `<chat_id>${chatId}</chat_id>\n\n`;
+    // 5. Capture replied-to message for context
+    const replyTarget = ctx.message?.reply_to_message;
+    let replyContext = "";
+    if (replyTarget?.text || replyTarget?.caption) {
+      const targetText = replyTarget.text || replyTarget.caption || "";
+      replyContext = `<replied_to>${targetText}</replied_to>\n\n`;
+      console.log(`[Reply] User replied to: ${targetText.slice(0, 80)}`);
+      // Also store the replied-to message in memory for future recall
+      try {
+        await memory.remember(
+          `[Reply to]: ${targetText}`,
+          { role: "user", chatId },
+        );
+      } catch (_) {}
+    }
+
+    // 6. Recall conversation history
+    let ctxPrefix = `<chat_id>${chatId}</chat_id>\n\n${replyContext}`;
     try {
       const past = await memory.recall(query, chatId, 30 * 60 * 1000, 4);
       if (past.length > 0) {
@@ -65,7 +82,7 @@ export function registerMessageHandler(bot: Bot): void {
 
     ctx.replyWithChatAction("typing").catch(() => {});
 
-    // 6. Enqueue — may abort a running LLM task for this chat
+    // 7. Enqueue — may abort a running LLM task for this chat
     chatQueue.enqueue(
       chatId,
       { query, ctxPrefix, imagePath },
