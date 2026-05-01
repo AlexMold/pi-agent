@@ -37,7 +37,8 @@ export function registerMessageHandler(bot: Bot): void {
     console.log(`[In] chat=${chatId}: ${query.slice(0, 100)}`);
 
     // 2. Determine route (image → vision, else → router or manual override)
-    const route = imagePath
+    // But respect manual model override even for images
+    const route = imagePath && !config.userModelOverride.has(chatId)
       ? buildVisionRoute()
       : await getEffectiveRoute(query, chatId);
 
