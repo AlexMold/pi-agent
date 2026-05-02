@@ -1,7 +1,6 @@
 node_modules
 dist
 .env
-.pi
 .ralph
 .whisper
 logs
@@ -10,6 +9,9 @@ output
 uploads
 workspace/
 memory_db/
+
+# Pi agent — keep sessions private, track config
+.pi/agent/sessions/
 
 # Credentials
 credentials/
