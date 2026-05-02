@@ -27,6 +27,7 @@ import { runBackup } from "./tools/backup.js";
 
 const bot = new Bot(config.telegramToken);
 
+await config.loadModelOverrides();
 await memory.init().catch((err) => console.error("[Memory] Init failed:", err));
 
 // ── Auth middleware ────────────────────────────────────────────────

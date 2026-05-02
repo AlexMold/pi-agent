@@ -72,6 +72,9 @@ export function registerCallbacks(bot: Bot): void {
       await ctx.answerCallbackQuery(`✅ ${label}`);
     }
 
+    // Persist the change to survive restarts
+    config.saveModelOverrides().catch(() => {});
+
     // Update the pinned status message
     const current = config.userModelOverride.get(chatId) || "auto";
     await updateStatusMessage(ctx, current);
