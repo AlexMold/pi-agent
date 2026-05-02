@@ -68,13 +68,13 @@ export function registerCallbacks(bot: Bot): void {
       config.userModelOverride.delete(chatId);
       await ctx.answerCallbackQuery("🔁 Smart Router включён");
       // Remove from LanceDB
-      memory.clearModelOverride(chatId).catch(() => {});
+      try { await memory.clearModelOverride(chatId); } catch {}
     } else {
       config.userModelOverride.set(chatId, modelId);
       const label = config.findModel(modelId)?.label || modelId;
       await ctx.answerCallbackQuery(`✅ ${label}`);
       // Persist in LanceDB
-      memory.setModelOverride(chatId, modelId).catch(() => {});
+      try { await memory.setModelOverride(chatId, modelId); } catch {}
     }
 
     // Update the pinned status message
