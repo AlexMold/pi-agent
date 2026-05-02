@@ -25,6 +25,7 @@ import { executeAgentTask } from "../agent.js";
 import { memory } from "../memory.js";
 import { chatQueue } from "../services/chat-queue.js";
 import type { ChatTask } from "../services/chat-queue.js";
+import { ensureModelStatus } from "./callbacks.js";
 
 export function registerMessageHandler(bot: Bot): void {
   bot.on(["message:text", "message:voice", "message:photo"], async (ctx: Context) => {
@@ -49,6 +50,9 @@ export function registerMessageHandler(bot: Bot): void {
       `${icon} <code>${route.model}</code> | ${route.reason} | ${route.type}`,
       { parse_mode: "HTML" },
     );
+
+    // 3b. Sync pinned status (only updates if model actually changed)
+    ensureModelStatus(ctx, hasOverride, route).catch(() => {});
 
     // 4. Store user message in memory (fire-and-forget)
     try { await memory.remember(query, { role: "user", chatId }); } catch (_) {}

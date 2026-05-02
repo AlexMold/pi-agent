@@ -6,39 +6,24 @@ import type { Bot, Context } from "grammy";
 import { config } from "../services/config.js";
 import { buildModelKeyboard } from "./commands.js";
 
-// ── Pinned status message tracker ───────────────────────────────
-const statusMessageIds = new Map<number, number>();
+// ── Track last known model per chat (not message IDs) ───────────
+const lastModelStatus = new Map<number, string>(); // chatId → "auto" | "modelId"
 
 async function updateStatusMessage(ctx: Context, modelId: string) {
   const chatId = ctx.chat?.id ?? 0;
 
-  if (modelId === "auto") {
-    const text = "🔁 <b>Auto</b> — SmartRouter выбирает модель автоматически";
-    await upsertPinned(ctx, chatId, text);
-  } else {
-    const label = config.findModel(modelId)?.label || modelId;
-    const text = `🔀 <b>${label}</b> — модель зафиксирована`;
-    await upsertPinned(ctx, chatId, text);
-  }
-}
+  // Skip if same as last status
+  if (lastModelStatus.get(chatId) === modelId) return;
 
-async function upsertPinned(
-  ctx: Context,
-  chatId: number,
-  text: string,
-): Promise<void> {
+  const text =
+    modelId === "auto"
+      ? "🔁 <b>Auto</b> — SmartRouter выбирает модель автоматически"
+      : `🔀 <b>${config.findModel(modelId)?.label || modelId}</b> — модель зафиксирована`;
+
   try {
-    // Try to unpin all bot messages first (cleanup old pins)
-    const existingId = statusMessageIds.get(chatId);
-    if (existingId) {
-      try {
-        await ctx.api.unpinChatMessage(chatId, existingId);
-      } catch {
-        // Old pin might be already removed — ignore
-      }
-    }
-
-    // Send new status and pin it
+    // Clear all previous pins first (no need to track message IDs)
+    await ctx.api.unpinAllChatMessages(chatId);
+    // Send and pin new status
     const msg = await ctx.api.sendMessage(chatId, text, {
       parse_mode: "HTML",
       disable_notification: true,
@@ -46,14 +31,18 @@ async function upsertPinned(
     await ctx.api.pinChatMessage(chatId, msg.message_id, {
       disable_notification: true,
     });
-    statusMessageIds.set(chatId, msg.message_id);
+    lastModelStatus.set(chatId, modelId);
   } catch {
-    // Bot not admin or pin failed — just send without pinning
-    const msg = await ctx.api.sendMessage(chatId, text, {
-      parse_mode: "HTML",
-      disable_notification: true,
-    });
-    statusMessageIds.set(chatId, msg.message_id);
+    // Pin not available — just send
+    try {
+      await ctx.api.sendMessage(chatId, text, {
+        parse_mode: "HTML",
+        disable_notification: true,
+      });
+    } catch {
+      // ignore
+    }
+    lastModelStatus.set(chatId, modelId);
   }
 }
 
@@ -63,11 +52,8 @@ export async function ensureModelStatus(
   hasOverride: boolean,
   route: { model: string },
 ): Promise<void> {
-  if (hasOverride) {
-    await updateStatusMessage(ctx, route.model);
-  } else {
-    await updateStatusMessage(ctx, "auto");
-  }
+  const modelId = hasOverride ? route.model : "auto";
+  await updateStatusMessage(ctx, modelId);
 }
 
 // ── Callback handler ────────────────────────────────────────────
