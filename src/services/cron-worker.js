@@ -27,7 +27,7 @@ async function tick() {
     if (!Array.isArray(reminders) || reminders.length === 0) return;
 
     const now = Date.now();
-    const due = reminders.filter((r) => r.dueAt <= now);
+    const due = reminders.filter((r) => r.dueAt <= now && now - r.dueAt < 30_000); // Due in the last minute
 
     if (due.length === 0) {
       if (reminders.length > 0) {
