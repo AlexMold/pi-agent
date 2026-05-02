@@ -22,3 +22,16 @@ services:
       - ALLOWED_USER_ID=${ALLOWED_USER_ID}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # ── Lightweight cron worker for reminders ──────────────────────────
+  cron-worker:
+    build:
+      context: .
+      dockerfile: docker/cron.Dockerfile
+    container_name: ai-cron-worker
+    restart: always
+    volumes:
+      - ./workspace:/app/workspace          # shared: reads reminders.json
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - REMINDER_DB=/app/workspace/reminders.json
