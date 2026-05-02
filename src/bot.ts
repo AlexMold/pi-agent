@@ -32,6 +32,9 @@ await memory.init().catch((err) => console.error("[Memory] Init failed:", err));
 // ── Auth middleware ────────────────────────────────────────────────
 
 bot.use(async (ctx, next) => {
+  // Skip auth for the bot's own messages and other bots
+  if (ctx.from?.is_bot) return next();
+
   const userId = ctx.from?.id;
   if (userId && userId !== config.allowedUserId && config.allowedUserId !== 0) {
     await ctx.reply(`⛔ Доступ запрещён. ID: <code>${userId}</code>`, {
