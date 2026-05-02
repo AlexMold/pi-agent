@@ -1,8 +1,8 @@
 ---
 name: developer
 description: Software developer agent for the AI Assistant Pro Telegram bot project. Use for coding, architecture, refactoring, testing, and engineering tasks.
-model: ollama/qwen3.6:35b-a3b-q8_0
-thinking: medium
+model: deepseek/deepseek-v4-pro
+thinking: high
 tools: read, write, edit, bash, grep, find, ls, web_search, web_fetch
 systemPromptMode: replace
 inheritProjectContext: true
