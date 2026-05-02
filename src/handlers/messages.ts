@@ -148,11 +148,11 @@ async function runAgentTask(
 
 function buildVisionRoute(): RouteResult {
   return {
-    model: "ollama/minicpm-v:8b-2.6-q4_K_M",
-    type: "local" as const,
+    model: "google/gemini-2.5-flash",
+    type: "cloud" as const,
     reason: "image",
-    baseUrl: `http://${config.ollamaHost}/v1`,
-    apiKey: "ollama",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    apiKey: config.geminiApiKey,
   };
 }
 
@@ -171,16 +171,22 @@ async function getEffectiveRoute(
 
   const manual = config.userModelOverride.get(chatId);
   if (manual) {
+    const isLocal = config.isLocalModel(manual);
+    const isGemini = manual.includes("gemini");
     return {
       model: manual,
-      type: config.isLocalModel(manual) ? "local" : "cloud",
+      type: isLocal ? "local" : "cloud",
       reason: "manual",
-      baseUrl: config.isLocalModel(manual)
+      baseUrl: isLocal
         ? `http://${config.ollamaHost}/v1`
-        : "https://api.deepseek.com/v1",
-      apiKey: config.isLocalModel(manual)
+        : isGemini
+          ? "https://generativelanguage.googleapis.com/v1beta"
+          : "https://api.deepseek.com/v1",
+      apiKey: isLocal
         ? "ollama"
-        : config.deepseekApiKey,
+        : isGemini
+          ? config.geminiApiKey
+          : config.deepseekApiKey,
     };
   }
   return SmartRouter.route(query, []);

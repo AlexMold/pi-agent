@@ -418,10 +418,10 @@ describe("Bot E2E — Message Handler", () => {
       expect(mockExecuteAgentTask).toHaveBeenCalled();
     });
 
-    // Vision route uses minicpm model
+    // Vision route uses Gemini cloud model
     const route = mockExecuteAgentTask.mock.calls[0][1];
-    expect(route.model).toContain("minicpm");
-    expect(route.type).toBe("local");
+    expect(route.model).toContain("gemini");
+    expect(route.type).toBe("cloud");
     expect(mockExecuteAgentTask.mock.calls[0][2]).toBe("photo_test.jpg");
   });
 });
@@ -567,12 +567,12 @@ describe("Bot E2E — Error Recovery", () => {
     mockConfigAny.hasCloudAccess = originalCloudAccess;
   });
 
-  it("shows vision-unavailable error when vision model fails and no cloud fallback for images", async () => {
+  it("shows error when cloud vision model fails", async () => {
     mockExtractMessage.mockResolvedValue({
       query: "describe this",
       imagePath: "photo.jpg",
     });
-    mockExecuteAgentTask.mockRejectedValue(new Error("Vision model down"));
+    mockExecuteAgentTask.mockRejectedValue(new Error("Gemini API error"));
 
     const bot = createMockBot();
     registerMessageHandler(bot);
@@ -582,7 +582,7 @@ describe("Bot E2E — Error Recovery", () => {
 
     await vi.waitFor(() => {
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining("не поддерживают изображения"),
+        expect.stringContaining("Ошибка"),
       );
     });
   });

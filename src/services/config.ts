@@ -33,6 +33,7 @@ class Config {
   readonly ollamaHost = process.env.OLLAMA_HOST || "host.docker.internal:11434";
   readonly whisperHost = process.env.WHISPER_HOST || "host.docker.internal:8080";
   readonly deepseekApiKey = process.env.DEEPSEEK_API_KEY || "";
+  readonly geminiApiKey = process.env.GEMINI_API_KEY || "";
   readonly piPath = process.env.PI_PATH || "/app/node_modules/.bin/pi";
 
   readonly localModels: ModelDef[] = [
@@ -43,8 +44,9 @@ class Config {
   ];
 
   readonly cloudModels: ModelDef[] = [
-    { id: "deepseek/deepseek-v4-pro",   label: "☁️ DeepSeek V4 Pro",   type: "cloud" },
-    { id: "deepseek/deepseek-v4-flash", label: "☁️ DeepSeek V4 Flash", type: "cloud" },
+    { id: "deepseek/deepseek-v4-pro",     label: "☁️ DeepSeek V4 Pro",       type: "cloud" },
+    { id: "deepseek/deepseek-v4-flash",   label: "☁️ DeepSeek V4 Flash",     type: "cloud" },
+    { id: "google/gemini-2.5-flash",      label: "☁️ Gemini 2.5 Flash (img)", type: "cloud" },
   ];
 
   readonly allModels: ModelDef[] = [...this.localModels, ...this.cloudModels];
@@ -60,7 +62,7 @@ class Config {
   }
 
   isVisionModel(modelId: string): boolean {
-    return modelId.includes("minicpm");
+    return modelId.includes("minicpm") || modelId.includes("gemini");
   }
 
   isLocalModel(modelId: string): boolean {

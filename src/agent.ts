@@ -48,6 +48,7 @@ export async function executeAgentTask(
 
     const isVision = route.model.includes("minicpm");
     if (isVision) {
+      // MiniCPM is local, no tool support
       args.push("--no-tools");
     } else {
       // Memory tool only for non-vision models (vision can't use tools)
@@ -86,6 +87,7 @@ export async function executeAgentTask(
     if (route.type === "cloud") {
       env.DEEPSEEK_API_KEY = route.apiKey;
       env.OPENAI_API_KEY = route.apiKey;
+      env.GOOGLE_API_KEY = route.apiKey;
     }
 
     // pi binary: absolute path avoids cwd-relative resolution issues
