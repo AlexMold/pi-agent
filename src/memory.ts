@@ -44,6 +44,7 @@ function getRecentInRange(chatId: number, rangeMs: number): TimedMessage[] {
 export class LongTermMemory {
   private db!: Connection;
   private table!: Table;
+  private modelTable!: Table;
   private initialized = false;
 
   async init(): Promise<void> {
@@ -64,6 +65,15 @@ export class LongTermMemory {
       ]);
     } else {
       this.table = await this.db.openTable("history");
+    }
+
+    // Model overrides table (scalar key-value, no embeddings)
+    if (!tables.includes("model_overrides")) {
+      this.modelTable = await this.db.createTable("model_overrides", [
+        { chatId: 0, modelId: "__init__" },
+      ]);
+    } else {
+      this.modelTable = await this.db.openTable("model_overrides");
     }
 
     this.initialized = true;
@@ -141,6 +151,43 @@ export class LongTermMemory {
     }
 
     return results;
+  }
+
+  // ── Model overrides (persisted in LanceDB) ────────────────────
+
+  async setModelOverride(chatId: number, modelId: string): Promise<void> {
+    if (!this.initialized) await this.init();
+    try {
+      // Upsert: delete old, insert new
+      await this.modelTable.delete(`"chatId" = ${chatId}`);
+      await this.modelTable.add([{ chatId, modelId }]);
+    } catch (err) {
+      console.error("[Memory] setModelOverride failed:", err);
+    }
+  }
+
+  async getModelOverride(chatId: number): Promise<string | null> {
+    if (!this.initialized) await this.init();
+    try {
+      const rows = await this.modelTable
+        .query()
+        .where(`"chatId" = ${chatId}`)
+        .limit(1)
+        .toArray();
+      const row = rows[0] as any;
+      return row?.modelId || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async clearModelOverride(chatId: number): Promise<void> {
+    if (!this.initialized) await this.init();
+    try {
+      await this.modelTable.delete(`"chatId" = ${chatId}`);
+    } catch (err) {
+      console.error("[Memory] clearModelOverride failed:", err);
+    }
   }
 
   /** Get embedding vector from local Ollama */

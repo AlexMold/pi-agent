@@ -37,6 +37,9 @@ const mockRecall = vi.hoisted(() => vi.fn());
 const mockRoute = vi.hoisted(() => vi.fn());
 const mockRouteSync = vi.hoisted(() => vi.fn());
 const mockExtractMessage = vi.hoisted(() => vi.fn());
+const mockGetModelOverride = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+const mockSetModelOverride = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockClearModelOverride = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("../services/config.js", () => ({
   config: {
@@ -86,6 +89,9 @@ vi.mock("../memory.js", () => ({
     init: vi.fn().mockResolvedValue(undefined),
     remember: mockRemember,
     recall: mockRecall,
+    getModelOverride: mockGetModelOverride,
+    setModelOverride: mockSetModelOverride,
+    clearModelOverride: mockClearModelOverride,
   },
 }));
 
@@ -697,5 +703,96 @@ describe("Bot E2E — Queue Integrity", () => {
     expect(hasC).toBe(true);
 
     vi.useRealTimers();
+  });
+});
+
+describe("Bot E2E — Model Override Persistence", () => {
+  beforeEach(() => {
+    resetAll();
+    mockRoute.mockResolvedValue({
+      model: "ollama/gemma4:31b",
+      type: "local",
+      reason: "default",
+      baseUrl: "http://localhost:11434/v1",
+      apiKey: "ollama",
+    });
+    mockExtractMessage.mockImplementation(async (ctx: any) => ({
+      query: ctx.message?.text || "default query",
+    }));
+  });
+
+  it("saves model override to LanceDB when user selects a model", async () => {
+    const bot = createMockBot();
+    registerCallbacks(bot);
+
+    const handler = bot._callbackHandlers[0].handler;
+    const ctx = createMockContext({
+      match: ["model:deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash"],
+    });
+    await handler(ctx);
+
+    // Should call setModelOverride to persist
+    expect(mockSetModelOverride).toHaveBeenCalledWith(
+      DEFAULT_CHAT_ID,
+      "deepseek/deepseek-v4-flash",
+    );
+  });
+
+  it("clears LanceDB override when user selects auto", async () => {
+    const bot = createMockBot();
+    registerCallbacks(bot);
+
+    // First set a manual override, then switch to auto
+    mockModelOverride.set(DEFAULT_CHAT_ID, "ollama/gemma4:31b");
+
+    const handler = bot._callbackHandlers[0].handler;
+    const ctx = createMockContext({
+      match: ["model:auto", "auto"],
+    });
+    await handler(ctx);
+
+    // Should call clearModelOverride
+    expect(mockClearModelOverride).toHaveBeenCalledWith(DEFAULT_CHAT_ID);
+  });
+
+  it("restores model override lazily on first message after restart", async () => {
+    mockGetModelOverride.mockResolvedValue("deepseek/deepseek-v4-flash");
+    mockExecuteAgentTask.mockResolvedValue("response");
+
+    const bot = createMockBot();
+    registerMessageHandler(bot);
+
+    // Simulate restart: override not in memory, but exists in LanceDB
+    mockModelOverride.clear();
+
+    const ctx = createMockContext({ message: { text: "hello" } });
+    await bot._messageHandlers[0].handler(ctx);
+
+    await vi.waitFor(() => {
+      // Should query LanceDB for persisted override
+      expect(mockGetModelOverride).toHaveBeenCalledWith(DEFAULT_CHAT_ID);
+      // Should restore to in-memory Map
+      expect(mockModelOverride.get(DEFAULT_CHAT_ID)).toBe(
+        "deepseek/deepseek-v4-flash",
+      );
+    });
+  });
+
+  it("skips LanceDB lookup when override already in memory", async () => {
+    mockExecuteAgentTask.mockResolvedValue("response");
+
+    const bot = createMockBot();
+    registerMessageHandler(bot);
+
+    // Override already in memory from a previous callback
+    mockModelOverride.set(DEFAULT_CHAT_ID, "ollama/gemma4:31b");
+
+    const ctx = createMockContext({ message: { text: "hello" } });
+    await bot._messageHandlers[0].handler(ctx);
+
+    await vi.waitFor(() => {
+      // Should NOT query LanceDB — already in memory
+      expect(mockGetModelOverride).not.toHaveBeenCalled();
+    });
   });
 });

@@ -18,8 +18,6 @@ function requireEnv(key: string): string {
 
 // ── Model types ─────────────────────────────────────────────────────
 
-import fs from "node:fs/promises";
-
 export interface ModelDef {
   id: string;
   label: string;
@@ -36,9 +34,6 @@ class Config {
   readonly whisperHost = process.env.WHISPER_HOST || "host.docker.internal:8080";
   readonly deepseekApiKey = process.env.DEEPSEEK_API_KEY || "";
   readonly piPath = process.env.PI_PATH || "/app/node_modules/.bin/pi";
-
-  // ── Persistence paths ────────────────────────────────────────
-  private readonly overridesPath = "/app/workspace/model-overrides.json";
 
   readonly localModels: ModelDef[] = [
     { id: "ollama/gemma4:31b",              label: "🟢 Gemma 4 31B",        type: "local" },
@@ -70,32 +65,6 @@ class Config {
 
   isLocalModel(modelId: string): boolean {
     return this.localModels.some((m) => m.id === modelId);
-  }
-
-  // ── Persist model overrides to survive restarts ───────────────
-  async loadModelOverrides(): Promise<void> {
-    try {
-      const data = await fs.readFile(this.overridesPath, "utf-8");
-      const parsed = JSON.parse(data);
-      for (const [chatId, modelId] of Object.entries(parsed)) {
-        this.userModelOverride.set(Number(chatId), modelId as string);
-      }
-      console.log(`[Config] Loaded ${this.userModelOverride.size} model overrides`);
-    } catch {
-      // File doesn't exist yet — first run, fine
-    }
-  }
-
-  async saveModelOverrides(): Promise<void> {
-    try {
-      const obj: Record<string, string> = {};
-      for (const [chatId, modelId] of this.userModelOverride) {
-        obj[String(chatId)] = modelId;
-      }
-      await fs.writeFile(this.overridesPath, JSON.stringify(obj, null, 2));
-    } catch (err) {
-      console.error("[Config] Failed to save model overrides:", err);
-    }
   }
 }
 

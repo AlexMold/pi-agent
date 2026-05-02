@@ -160,6 +160,15 @@ async function getEffectiveRoute(
   query: string,
   chatId: number,
 ): Promise<RouteResult> {
+  // Check LanceDB for persisted model override (survives restarts)
+  if (!config.userModelOverride.has(chatId)) {
+    const persisted = await memory.getModelOverride(chatId);
+    if (persisted) {
+      config.userModelOverride.set(chatId, persisted);
+      console.log(`[Model] Restored override for chat ${chatId}: ${persisted}`);
+    }
+  }
+
   const manual = config.userModelOverride.get(chatId);
   if (manual) {
     return {

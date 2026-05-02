@@ -4,6 +4,7 @@
 
 import type { Bot, Context } from "grammy";
 import { config } from "../services/config.js";
+import { memory } from "../memory.js";
 import { buildModelKeyboard } from "./commands.js";
 
 // ── Track last known model per chat (not message IDs) ───────────
@@ -66,14 +67,15 @@ export function registerCallbacks(bot: Bot): void {
     if (modelId === "auto") {
       config.userModelOverride.delete(chatId);
       await ctx.answerCallbackQuery("🔁 Smart Router включён");
+      // Remove from LanceDB
+      memory.clearModelOverride(chatId).catch(() => {});
     } else {
       config.userModelOverride.set(chatId, modelId);
       const label = config.findModel(modelId)?.label || modelId;
       await ctx.answerCallbackQuery(`✅ ${label}`);
+      // Persist in LanceDB
+      memory.setModelOverride(chatId, modelId).catch(() => {});
     }
-
-    // Persist the change to survive restarts
-    config.saveModelOverrides().catch(() => {});
 
     // Update the pinned status message
     const current = config.userModelOverride.get(chatId) || "auto";
