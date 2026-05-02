@@ -8,11 +8,11 @@ FROM node:24-alpine
 
 WORKDIR /app
 
-# Only copy what's needed for grammy + the worker script
-COPY package*.json ./
+# Minimal deps — just grammy
+COPY docker/package-cron.json package.json
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev --prefer-offline && \
+    npm install --prefer-offline && \
     npm cache clean --force
 
 COPY src/services/cron-worker.js ./

@@ -1,0 +1,8 @@
+{
+  "name": "ai-cron-worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "grammy": "^1.38.1"
+  }
+}
