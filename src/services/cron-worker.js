@@ -60,15 +60,13 @@ async function tick() {
 
 // ── Start ────────────────────────────────────────────────────────
 
-bot.start({
-  onStart: () => {
-    console.log("⏰ Cron Worker started");
-    console.log(`   DB: ${DB_PATH}`);
-    // Fire immediately, then every 60s
-    tick();
-    setInterval(tick, 60_000);
-  },
-});
+console.log("⏰ Cron Worker started");
+console.log(`   DB: ${DB_PATH}`);
+
+// Fire immediately, then every 60s
+// No bot.start() — we only SEND messages, not receive
+tick();
+setInterval(tick, 60_000);
 
 process.on("SIGINT", () => process.exit(0));
 process.on("SIGTERM", () => process.exit(0));
