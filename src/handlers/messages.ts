@@ -55,7 +55,7 @@ export function registerMessageHandler(bot: Bot): void {
     ensureModelStatus(ctx, hasOverride, route).catch(() => {});
 
     // 4. Store user message in memory (fire-and-forget)
-    try { await memory.remember(query, { role: "user", chatId }); } catch (_) {}
+    try { await memory.remember(query, { role: "user", chatId }); } catch (err: any) { console.error("[Memory] remember failed:", err.message); }
 
     // 5. Capture replied-to message for context
     const replyTarget = ctx.message?.reply_to_message;
@@ -125,7 +125,7 @@ async function runAgentTask(
 
     // Store assistant response (cleaned, for memory/history)
     const chatId = ctx.chat?.id ?? 0;
-    try { await memory.remember(cleanResponse(raw), { role: "assistant", chatId }); } catch (_) {}
+    try { await memory.remember(cleanResponse(raw), { role: "assistant", chatId }); } catch (err: any) { console.error("[Memory] remember failed:", err.message); }
 
     // sendChunkedResponse handles its own cleaning + chunking
     await sendChunkedResponse(ctx, raw);

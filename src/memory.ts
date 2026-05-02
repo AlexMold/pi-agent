@@ -50,7 +50,9 @@ export class LongTermMemory {
   async init(): Promise<void> {
     if (this.initialized) return;
 
-    this.db = await lancedb.connect("memory_db/ai_context");
+    const dbPath = "memory_db/ai_context";
+    console.log(`[Memory] Connecting to LanceDB at ${dbPath}`);
+    this.db = await lancedb.connect(dbPath);
     const tables = await this.db.tableNames();
 
     if (!tables.includes("history")) {
@@ -190,20 +192,25 @@ export class LongTermMemory {
     }
   }
 
-  /** Get embedding vector from local Ollama */
+  /** Get embedding vector from local Ollama, fallback to zero vector */
   private async embed(text: string): Promise<number[]> {
-    const res = await fetch(`http://${OLLAMA_BASE}/api/embeddings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "nomic-embed-text", prompt: text }),
-    });
+    try {
+      const res = await fetch(`http://${OLLAMA_BASE}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "nomic-embed-text", prompt: text }),
+      });
 
-    if (!res.ok) {
-      throw new Error(`Ollama embeddings failed: ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(`Ollama embeddings HTTP ${res.status}`);
+      }
+
+      const data = (await res.json()) as { embedding: number[] };
+      return data.embedding;
+    } catch (err: any) {
+      console.error("[Memory] Embedding failed, using zero vector:", err.message);
+      return new Array(768).fill(0);
     }
-
-    const data = (await res.json()) as { embedding: number[] };
-    return data.embedding;
   }
 }
 

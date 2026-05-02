@@ -15,11 +15,14 @@ let table;
 
 async function init() {
   if (db) return;
-  db = await lancedb.connect("memory_db/ai_context");
+  const dbPath = "/app/memory_db/ai_context";
+  console.log(`[Memory Tool] Connecting to LanceDB at ${dbPath}`);
+  db = await lancedb.connect(dbPath);
   const tables = await db.tableNames();
   table = tables.includes("history")
     ? await db.openTable("history")
     : null;
+  console.log(`[Memory Tool] Table ready: ${!!table}, tables: ${tables.join(", ")}`);
 }
 
 async function embed(text) {
