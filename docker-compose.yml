@@ -36,15 +36,15 @@ services:
     command:
       - |
         MODEL=/models/qwen3.5-1b-q4_k_m.gguf
-        if [ ! -f "$MODEL" ]; then
+        if [ ! -f "$$MODEL" ]; then
           echo "⬇️  Downloading Qwen 3.5-1B Q4_K_M GGUF (~800 MB)..."
-          wget -q --show-progress -O "$MODEL" \
+          wget -q --show-progress -O "$$MODEL" \
             https://huggingface.co/Qwen/Qwen3.5-1B-GGUF/resolve/main/qwen3.5-1b-q4_k_m.gguf
           echo "✅ Download complete"
         else
           echo "✅ Model already downloaded"
         fi
-        exec llama-server --host 0.0.0.0 --port 8081 --model "$MODEL" --ctx-size 2048 --threads 4
+        exec llama-server --host 0.0.0.0 --port 8081 --model "$$MODEL" --ctx-size 2048 --threads 4
 
   # ── Lightweight cron worker for reminders ──────────────────────────
   cron-worker:
