@@ -9,15 +9,15 @@ import { describe, it, expect } from "vitest";
 import { SmartRouter } from "../router.js";
 
 describe("SmartRouter.routeSync – keyword routing", () => {
-  it("routes simple greetings to lightweight gemma4:latest", () => {
+  it("routes simple greetings to lightweight qwen3.5-0.8b", () => {
     const result = SmartRouter.routeSync("привет", []);
-    expect(result.model).toBe("ollama/gemma4:latest");
+    expect(result.model).toBe("llama/qwen3.5-0.8b");
     expect(result.type).toBe("local");
   });
 
   it("routes 'hi' greeting to lightweight model", () => {
     const result = SmartRouter.routeSync("hi", []);
-    expect(result.model).toBe("ollama/gemma4:latest");
+    expect(result.model).toBe("llama/qwen3.5-0.8b");
   });
 
   it("routes refactoring tasks to cloud pro model", () => {
@@ -44,7 +44,7 @@ describe("SmartRouter.routeSync – keyword routing", () => {
 
   it("routes generic tasks to default local model", () => {
     const result = SmartRouter.routeSync("что такое dependency injection?", []);
-    expect(result.model).toBe("ollama/gemma4:latest");
+    expect(result.model).toBe("llama/qwen3.5-0.8b");
     expect(result.type).toBe("local");
   });
 

@@ -38,7 +38,7 @@ class Config {
   readonly piPath = process.env.PI_PATH || "/app/node_modules/.bin/pi";
 
   readonly localModels: ModelDef[] = [
-    { id: "ollama/gemma4:latest", label: "🟢 Gemma 4 1B (routing)",  type: "local" },
+    { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B (routing)", type: "local" },
   ];
 
   readonly cloudModels: ModelDef[] = [

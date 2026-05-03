@@ -51,31 +51,27 @@ vi.mock("../services/config.js", () => ({
     hasCloudAccess: true,
     userModelOverride: mockModelOverride,
     allModels: [
-      { id: "ollama/gemma4:31b", label: "🟢 Gemma 4 31B", type: "local" },
-      { id: "ollama/gemma4:latest", label: "🟢 Gemma 4 8B", type: "local" },
-      { id: "ollama/qwen3.6:35b-a3b-q8_0", label: "🟢 Qwen 3.6 35B", type: "local" },
-      { id: "ollama/minicpm-v:8b-2.6-q4_K_M", label: "🟢 MiniCPM-V 8B (img)", type: "local" },
+      { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B", type: "local" },
       { id: "deepseek/deepseek-v4-pro", label: "☁️ DeepSeek V4 Pro", type: "cloud" },
       { id: "deepseek/deepseek-v4-flash", label: "☁️ DeepSeek V4 Flash", type: "cloud" },
+      { id: "google/gemini-2.5-flash", label: "☁️ Gemini 2.5 Flash (img)", type: "cloud" },
     ],
     localModels: [
-      { id: "ollama/gemma4:31b", label: "🟢 Gemma 4 31B", type: "local" },
-      { id: "ollama/gemma4:latest", label: "🟢 Gemma 4 8B", type: "local" },
-      { id: "ollama/qwen3.6:35b-a3b-q8_0", label: "🟢 Qwen 3.6 35B", type: "local" },
-      { id: "ollama/minicpm-v:8b-2.6-q4_K_M", label: "🟢 MiniCPM-V 8B (img)", type: "local" },
+      { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B", type: "local" },
     ],
     cloudModels: [
       { id: "deepseek/deepseek-v4-pro", label: "☁️ DeepSeek V4 Pro", type: "cloud" },
       { id: "deepseek/deepseek-v4-flash", label: "☁️ DeepSeek V4 Flash", type: "cloud" },
+      { id: "google/gemini-2.5-flash", label: "☁️ Gemini 2.5 Flash (img)", type: "cloud" },
     ],
     findModel: (id: string) => {
       const all = [
-        { id: "ollama/gemma4:31b", label: "🟢 Gemma 4 31B", type: "local" },
+        { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B", type: "local" },
         { id: "deepseek/deepseek-v4-pro", label: "☁️ DeepSeek V4 Pro", type: "cloud" },
       ];
       return all.find((m) => m.id === id) || null;
     },
-    isLocalModel: (id: string) => id.includes("ollama"),
+    isLocalModel: (id: string) => id.includes("llama"),
     isVisionModel: (id: string) => id.includes("minicpm"),
   },
 }));
@@ -213,14 +209,14 @@ describe("Bot E2E — Message Handler", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "ollama/gemma4:31b",
+      model: "llama/qwen3.5-0.8b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
       apiKey: "ollama",
     });
     mockRouteSync.mockReturnValue({
-      model: "ollama/gemma4:31b",
+      model: "llama/qwen3.5-0.8b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -261,7 +257,7 @@ describe("Bot E2E — Message Handler", () => {
 
     // Model notification sent
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("gemma4:31b"),
+      expect.stringContaining("qwen3.5-0.8b"),
       expect.any(Object),
     );
   });
@@ -513,7 +509,7 @@ describe("Bot E2E — Callbacks (Model Selection)", () => {
     const handler = bot._callbackHandlers[0].handler;
 
     // First set a manual override
-    mockModelOverride.set(DEFAULT_CHAT_ID, "ollama/gemma4:31b");
+    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/qwen3.5-0.8b");
 
     // Then reset to auto
     const ctx = createMockContext({
@@ -532,7 +528,7 @@ describe("Bot E2E — Error Recovery", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "ollama/gemma4:31b",
+      model: "llama/qwen3.5-0.8b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -592,7 +588,7 @@ describe("Bot E2E — Queue Integrity", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "ollama/gemma4:31b",
+      model: "llama/qwen3.5-0.8b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -710,7 +706,7 @@ describe("Bot E2E — Model Override Persistence", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "ollama/gemma4:31b",
+      model: "llama/qwen3.5-0.8b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -743,7 +739,7 @@ describe("Bot E2E — Model Override Persistence", () => {
     registerCallbacks(bot);
 
     // First set a manual override, then switch to auto
-    mockModelOverride.set(DEFAULT_CHAT_ID, "ollama/gemma4:31b");
+    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/qwen3.5-0.8b");
 
     const handler = bot._callbackHandlers[0].handler;
     const ctx = createMockContext({
@@ -785,7 +781,7 @@ describe("Bot E2E — Model Override Persistence", () => {
     registerMessageHandler(bot);
 
     // Override already in memory from a previous callback
-    mockModelOverride.set(DEFAULT_CHAT_ID, "ollama/gemma4:31b");
+    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/qwen3.5-0.8b");
 
     const ctx = createMockContext({ message: { text: "hello" } });
     await bot._messageHandlers[0].handler(ctx);
