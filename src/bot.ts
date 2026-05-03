@@ -23,7 +23,29 @@ import { memory } from "./memory.js";
 import { Cron } from "croner";
 import { runBackup } from "./tools/backup.js";
 
+// ── Helpers ─────────────────────────────────────────────────────────
+
+async function waitForService(url: string, timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        console.log(`[Init] Service ready: ${url}`);
+        return;
+      }
+    } catch {
+      // Not ready yet
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  console.warn(`[Init] Service not ready after ${timeoutMs}ms: ${url}`);
+}
+
 // ── Init ──────────────────────────────────────────────────────────
+
+// Wait for llama-service to be ready (may be downloading model)
+await waitForService(`http://${config.llamaHost}/health`, 120_000);
 
 const bot = new Bot(config.telegramToken);
 
