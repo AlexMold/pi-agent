@@ -152,33 +152,46 @@ export class SmartRouter {
       .map(([id, m]) => `${id} — ${m.description}`)
       .join("\n");
 
-    const res = await fetch(`http://${LLAMA_BASE}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: `${CLASSIFIER_SYSTEM}\n\nДоступные модели:\n${modelList}` },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0,
-        max_tokens: 100,
-        stream: false,
-      }),
+    const body = JSON.stringify({
+      messages: [
+        { role: "system", content: `${CLASSIFIER_SYSTEM}\n\nДоступные модели:\n${modelList}` },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0,
+      max_tokens: 100,
+      stream: false,
     });
 
-    if (!res.ok) return null;
+    // Retry up to 3 times with backoff (llama-service may still be loading)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(`http://${LLAMA_BASE}/v1/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: AbortSignal.timeout(10_000),
+        });
 
-    const data = (await res.json()) as any;
-    const text: string = data.choices?.[0]?.message?.content || "";
+        if (!res.ok) {
+          console.warn(`[Router] classify HTTP ${res.status}, attempt ${attempt + 1}/3`);
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
 
-    // Extract JSON from response (robust against markdown fences)
-    const json = text.match(/\{[\s\S]*\}/)?.[0];
-    if (!json) return null;
+        const data = (await res.json()) as any;
+        const text: string = data.choices?.[0]?.message?.content || "";
+        const json = text.match(/\{[\s\S]*\}/)?.[0];
+        if (!json) return null;
+        const parsed = JSON.parse(json);
+        if (!parsed.model || !parsed.reason) return null;
+        return { model: parsed.model, reason: parsed.reason };
+      } catch (err: any) {
+        console.warn(`[Router] classify failed, attempt ${attempt + 1}/3:`, err.message);
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
 
-    const parsed = JSON.parse(json);
-    if (!parsed.model || !parsed.reason) return null;
-
-    return { model: parsed.model, reason: parsed.reason };
+    return null;
   }
 
   /** Keyword-based fallback */

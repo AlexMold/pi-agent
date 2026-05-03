@@ -36,6 +36,12 @@ services:
       - ./models:/models
     environment:
       - HF_TOKEN=${HF_TOKEN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   # ── Lightweight cron worker for reminders ──────────────────────────
   cron-worker:
