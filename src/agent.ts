@@ -31,6 +31,11 @@ export async function executeAgentTask(
     throw err;
   }
 
+  // ── Local model: call llama-server API directly (Pi print mode is buggy) ──
+  if (route.type === "local" && route.model.includes("llama")) {
+    return callLocalModel(task, route, signal);
+  }
+
   return new Promise((resolve, reject) => {
     const args: string[] = [
       "--model",
@@ -156,4 +161,44 @@ export async function executeAgentTask(
       if (!signal?.aborted) reject(err);
     });
   });
+}
+
+// ── Direct API call for local llama.cpp model ──────────────────────
+
+async function callLocalModel(
+  task: string,
+  route: RouteResult,
+  signal?: AbortSignal,
+): Promise<string> {
+  const url = `${route.baseUrl}/chat/completions`;
+  console.log(`[Agent] Direct API call: ${url}`);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(route.apiKey && route.apiKey !== "not-needed"
+        ? { Authorization: `Bearer ${route.apiKey}` }
+        : {}),
+    },
+    body: JSON.stringify({
+      messages: [
+        { role: "user", content: task },
+      ],
+      max_tokens: 512,
+      temperature: 0.7,
+      stream: false,
+    }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Local model HTTP ${res.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = (await res.json()) as any;
+  const text = data.choices?.[0]?.message?.content || "";
+  console.log(`[Agent] Local model response (${text.length} chars): ${text.slice(0, 100)}`);
+  return text;
 }
