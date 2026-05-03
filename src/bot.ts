@@ -68,7 +68,7 @@ process.on("uncaughtException", (e) =>
 bot.start({
   onStart: () => {
     console.log("🤖 AI Assistant Pro Bot started");
-    console.log(`   Ollama: ${config.ollamaHost}`);
+    console.log(`   Llama: ${config.llamaHost}`);
     console.log(`   Whisper: ${config.whisperHost}`);
     console.log(`   Allowed user: ${config.allowedUserId || "any"}`);
   },

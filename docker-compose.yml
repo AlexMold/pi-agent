@@ -21,7 +21,7 @@ services:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - SERPER_API_KEY=${SERPER_API_KEY}
       - LLAMA_HOST=llama-service:8081
-      - WHISPER_HOST=host.docker.internal:8080
+      - WHISPER_HOST=${WHISPER_HOST:-host.docker.internal:8080}
       - WHISPER_LANG=${WHISPER_LANG:-ru}
       - ALLOWED_USER_ID=${ALLOWED_USER_ID}
 
@@ -30,8 +30,6 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server
     container_name: llama-service
     restart: always
-    ports:
-      - "8081:8081"
     volumes:
       - ./models:/models
     command:

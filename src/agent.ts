@@ -32,11 +32,6 @@ export async function executeAgentTask(
   }
 
   return new Promise((resolve, reject) => {
-    const isHostOllama =
-      route.baseUrl.includes("host.docker.internal") ||
-      route.baseUrl.includes("localhost") ||
-      route.baseUrl.includes("127.0.0.1");
-
     const args: string[] = [
       "--model",
       route.model,
@@ -61,10 +56,6 @@ export async function executeAgentTask(
       args.push("--extension", "/app/src/tools/reminder/index.js");
     }
 
-    if (isHostOllama) {
-      args.push("--offline");
-    }
-
     if (route.type === "cloud") {
       args.unshift("--thinking", "medium");
     }
@@ -80,7 +71,7 @@ export async function executeAgentTask(
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       PI_SKIP_VERSION_CHECK: "1",
-      PI_OFFLINE: isHostOllama ? "1" : "0",
+      PI_OFFLINE: "0",
       PI_TELEMETRY: "0",
     };
 
