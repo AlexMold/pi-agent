@@ -16,3 +16,5 @@ memory_db/
 # Credentials
 credentials/
 auth.json
+
+models/
