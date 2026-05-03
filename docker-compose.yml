@@ -27,24 +27,13 @@ services:
 
   # ── Tiny local model for routing (Qwen 3.5-1B via llama.cpp) ─────
   llama-service:
-    image: ghcr.io/ggml-org/llama.cpp:server
+    build:
+      context: .
+      dockerfile: docker/llama.Dockerfile
     container_name: llama-service
     restart: always
     volumes:
       - ./models:/models
-    entrypoint: ["sh", "-c"]
-    command:
-      - |
-        MODEL=/models/qwen3.5-1b-q4_k_m.gguf
-        if [ ! -f "$$MODEL" ]; then
-          echo "⬇️  Downloading Qwen 3.5-1B Q4_K_M GGUF (~800 MB)..."
-          curl -L -o "$$MODEL" \
-            https://huggingface.co/Qwen/Qwen3.5-1B-GGUF/resolve/main/qwen3.5-1b-q4_k_m.gguf
-          echo "✅ Download complete"
-        else
-          echo "✅ Model already downloaded"
-        fi
-        exec /llama-server --host 0.0.0.0 --port 8081 --model "$$MODEL" --ctx-size 2048 --threads 4
 
   # ── Lightweight cron worker for reminders ──────────────────────────
   cron-worker:
