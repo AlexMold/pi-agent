@@ -132,6 +132,8 @@ export async function executeAgentTask(
       clearTimeout(timeout);
       signal?.removeEventListener("abort", onAbort);
       console.log(`[Agent] Exited with code ${code}`);
+      console.log(`[Agent] Raw stdout (${stdout.length} chars): ${stdout.slice(0, 200)}`);
+      console.log(`[Agent] Raw stderr (${stderr.length} chars): ${stderr.slice(0, 200)}`);
 
       // If we were aborted, the reject was already called — don't double-reject
       if (signal?.aborted) return;
