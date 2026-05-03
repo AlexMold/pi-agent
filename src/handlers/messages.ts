@@ -178,7 +178,7 @@ async function getEffectiveRoute(
       type: isLocal ? "local" : "cloud",
       reason: "manual",
       baseUrl: isLocal
-        ? `http://${config.ollamaHost}/v1`
+        ? `http://${config.llamaHost}/v1`
         : isGemini
           ? "https://generativelanguage.googleapis.com/v1beta"
           : "https://api.deepseek.com/v1",
