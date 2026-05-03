@@ -14,4 +14,4 @@ RUN chmod +x /entrypoint.sh
 
 # Our wrapper calls the original llama-server after download check
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["--host", "0.0.0.0", "--port", "8081", "--model", "/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf", "--ctx-size", "2048", "--threads", "4"]
+CMD ["--host", "0.0.0.0", "--port", "8081", "--model", "/models/Qwen3.5-1B-Q4_K_M.gguf", "--ctx-size", "2048", "--threads", "4"]
