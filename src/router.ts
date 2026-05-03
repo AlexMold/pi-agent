@@ -1,9 +1,9 @@
 /**
- * SmartRouter — LLM-powered model routing via lightweight Ollama classifier.
+ * SmartRouter — LLM-powered model routing via tiny local llama-server.
  *
  * Flow:
  *  1. Token overflow (>100k) → cloud (instant, no LLM call)
- *  2. Lightweight LLM (gemma4:latest, 8B) classifies the query →
+ *  2. Tiny local model (Qwen 3.5-1B via llama-server) classifies query →
  *     picks best model from available pool
  *  3. Fallback: keyword matching if LLM unavailable
  */
@@ -11,7 +11,7 @@
 import { getEncoding } from "js-tiktoken";
 
 const enc = getEncoding("cl100k_base");
-const OLLAMA_BASE = process.env.OLLAMA_HOST || "host.docker.internal:11434";
+const LLAMA_BASE = process.env.LLAMA_HOST || "host.docker.internal:8081";
 
 // ── Model pool ───────────────────────────────────────────────────────
 
@@ -24,25 +24,12 @@ interface ModelEntry {
 }
 
 const MODELS: Record<string, ModelEntry> = {
+  // One tiny local model for routing + simple tasks
   "ollama/gemma4:latest": {
     id: "ollama/gemma4:latest",
-    description: "легковесная 8B — простые вопросы, приветствия, быстрые ответы",
+    description: "лёгкая — простые вопросы, приветствия, быстрые ответы",
     type: "local",
-    baseUrl: `http://${OLLAMA_BASE}/v1`,
-    apiKey: "ollama",
-  },
-  "ollama/qwen3.6:35b-a3b-q8_0": {
-    id: "ollama/qwen3.6:35b-a3b-q8_0",
-    description: "31B — основная рабочая: код, написание текстов, краткий анализ",
-    type: "local",
-    baseUrl: `http://${OLLAMA_BASE}/v1`,
-    apiKey: "ollama",
-  },
-  "ollama/minicpm-v:8b-2.6-q4_K_M": {
-    id: "ollama/minicpm-v:8b-2.6-q4_K_M",
-    description: "8B vision — работа с изображениями, скриншотами",
-    type: "local",
-    baseUrl: `http://${OLLAMA_BASE}/v1`,
+    baseUrl: `http://${LLAMA_BASE}/v1`,
     apiKey: "ollama",
   },
   "deepseek/deepseek-v4-pro": {
@@ -59,24 +46,28 @@ const MODELS: Record<string, ModelEntry> = {
     baseUrl: "https://api.deepseek.com/v1",
     apiKey: process.env.DEEPSEEK_API_KEY || "",
   },
+  "google/gemini-2.5-flash": {
+    id: "google/gemini-2.5-flash",
+    description: "облачная vision — изображения, скриншоты, фото",
+    type: "cloud",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    apiKey: process.env.GEMINI_API_KEY || "",
+  },
 };
 
-// Default model when nothing else matches
-const DEFAULT_MODEL = "ollama/qwen3.6:35b-a3b-q8_0";
+// Default: the tiny local model
+const DEFAULT_MODEL = "ollama/gemma4:latest";
 
-// ── Router classifier prompt ─────────────────────────────────────────
+// ── Router classifier prompt (simplified — fewer options) ────────────
 
 const CLASSIFIER_SYSTEM = `Ты — умный роутер AI-ассистента. Твоя задача: проанализировать запрос пользователя и выбрать лучшую модель из списка.
 
 Правила:
-1. Для простых приветствий и болтовни — самая лёгкая модель (gemma4:latest)
-2. Для кода, написания текстов, обычных вопросов — основная рабочая (gemma4:latest)
-3. Для сложного кода, математики, архитектуры, многошаговых задач — мощная локальная (qwen3.6:35b)
-4. Для изображений/скриншотов — vision модель (minicpm-v)
-5. Для РЕФАКТОРИНГА, АУДИТА безопасности, МИГРАЦИЙ, анализа больших объёмов — облачная (deepseek-v4-pro)
-6. Для ПОИСКА В ИНТЕРНЕТЕ, поиска информации, новостей, цен, товаров — облачная быстрая (deepseek-v4-flash)
-7. Экономь ресурсы: по умолчанию используй локальные модели
-8. Облачные модели — только когда задача явно этого требует
+1. Для односложных вопросов, приветствий — лёгкая локальная (gemma4:latest)
+2. Для изображений/скриншотов — vision (gemini-2.5-flash)
+3. Для РЕФАКТОРИНГА, АУДИТА безопасности, МИГРАЦИЙ, анализа больших объёмов — облачная (deepseek-v4-pro)
+4. Для ПОИСКА В ИНТЕРНЕТЕ, поиска информации, новостей, цен, товаров — облачная быстрая (deepseek-v4-flash)
+5. Экономь ресурсы: по умолчанию используй локальную модель
 
 Ответь СТРОГО в JSON:
 {"model": "ID модели", "reason": "краткое объяснение на русском"}`;
@@ -99,7 +90,7 @@ export class SmartRouter {
   /**
    * Main routing method.
    * Token overflow → cloud instantly.
-   * Otherwise → LLM classifier.
+   * Otherwise → LLM classifier (tiny model via llama-server).
    */
   static async route(
     prompt: string,
@@ -116,7 +107,7 @@ export class SmartRouter {
       );
     }
 
-    // 2. Try LLM classifier
+    // 2. Try tiny LLM classifier via llama-server
     try {
       const classification = await this.classify(prompt);
       if (classification && MODELS[classification.model]) {
@@ -153,7 +144,7 @@ export class SmartRouter {
     };
   }
 
-  /** Call lightweight Ollama model to classify the query */
+  /** Call tiny model via llama-server to classify the query */
   private static async classify(
     prompt: string,
   ): Promise<{ model: string; reason: string } | null> {
@@ -161,11 +152,10 @@ export class SmartRouter {
       .map(([id, m]) => `${id} — ${m.description}`)
       .join("\n");
 
-    const res = await fetch(`http://${OLLAMA_BASE}/v1/chat/completions`, {
+    const res = await fetch(`http://${LLAMA_BASE}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gemma4:latest", // 8B — very fast classification
         messages: [
           { role: "system", content: `${CLASSIFIER_SYSTEM}\n\nДоступные модели:\n${modelList}` },
           { role: "user", content: prompt },
@@ -195,34 +185,27 @@ export class SmartRouter {
   private static keywordRoute(prompt: string): RouteResult {
     const p = prompt.toLowerCase();
 
-    // Heavy → cloud
     if (
       /архитектур|refactor|рефактор|optimiz|оптимиз|security|безопасност|migrate|миграц|аудит|audit/i.test(p)
     ) {
       return this.buildResult("deepseek/deepseek-v4-pro", "complexity (keywords)");
     }
 
-    // Search queries → cloud flash
     if (
       /найди|поиск|search|find|google|цены|price|купить|новости|news|тренды|trends|сколько стоит|where to buy/i.test(p)
     ) {
       return this.buildResult("deepseek/deepseek-v4-flash", "web search (keywords)");
     }
-    if (
-      /алгоритм|мат(ематик|ем)|вычислен|доказа(ть|тельство)|формула|алгебр|геометри|компиля(тор|цию)/i.test(p)
-    ) {
-      return this.buildResult("ollama/qwen3.6:35b-a3b-q8_0", "math/code (keywords)");
-    }
 
-    // Simple chat/greeting → lightweight
+    // Simple chat → local
     if (
       /^(привет|hi|hello|здравствуй|как дела|hey|добр(ый|ое)|who are you|кто ты)/i.test(p) &&
       p.length < 40
     ) {
-      return this.buildResult("ollama/gemma4:latest", "simple chat (keywords)");
+      return this.buildResult(DEFAULT_MODEL, "simple chat (keywords)");
     }
 
-    // Default → workhorse
+    // Default → local
     return this.buildResult(DEFAULT_MODEL, "default (efficiency)");
   }
 }
