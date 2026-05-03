@@ -1,7 +1,7 @@
 #!/bin/sh
 # Wrapper: download model if missing, then launch llama-server.
-MODEL="/models/Qwen3.5-1B-Q4_K_M.gguf"
-URL="https://huggingface.co/bartowski/Qwen3.5-1B-GGUF/resolve/main/Qwen3.5-1B-Q4_K_M.gguf"
+MODEL="/models/Qwen3.5-0.8B-Q4_K_M.gguf"
+URL="https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf"
 
 if [ ! -f "$MODEL" ]; then
   if [ -z "$HF_TOKEN" ]; then
@@ -9,7 +9,7 @@ if [ ! -f "$MODEL" ]; then
     echo "   Get token: https://huggingface.co/settings/tokens"
     exit 1
   fi
-  echo "⬇️  Downloading Qwen 3.5-1B Q4_K_M GGUF (~700 MB)..."
+  echo "⬇️  Downloading Qwen 3.5-0.8B Q4_K_M GGUF (~500 MB)..."
   if ! curl -sSLf -o "$MODEL" -H "Authorization: Bearer $HF_TOKEN" "$URL"; then
     echo "❌ Download failed. Check HF_TOKEN."
     rm -f "$MODEL"
