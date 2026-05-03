@@ -51,13 +51,13 @@ vi.mock("../services/config.js", () => ({
     hasCloudAccess: true,
     userModelOverride: mockModelOverride,
     allModels: [
-      { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B", type: "local" },
+      { id: "llama/llama3.2-1b", label: "🟢 Llama 3.2-1B", type: "local" },
       { id: "deepseek/deepseek-v4-pro", label: "☁️ DeepSeek V4 Pro", type: "cloud" },
       { id: "deepseek/deepseek-v4-flash", label: "☁️ DeepSeek V4 Flash", type: "cloud" },
       { id: "google/gemini-2.5-flash", label: "☁️ Gemini 2.5 Flash (img)", type: "cloud" },
     ],
     localModels: [
-      { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B", type: "local" },
+      { id: "llama/llama3.2-1b", label: "🟢 Llama 3.2-1B", type: "local" },
     ],
     cloudModels: [
       { id: "deepseek/deepseek-v4-pro", label: "☁️ DeepSeek V4 Pro", type: "cloud" },
@@ -66,7 +66,7 @@ vi.mock("../services/config.js", () => ({
     ],
     findModel: (id: string) => {
       const all = [
-        { id: "llama/qwen3.5-0.8b", label: "🟢 Qwen 3.5-0.8B", type: "local" },
+        { id: "llama/llama3.2-1b", label: "🟢 Llama 3.2-1B", type: "local" },
         { id: "deepseek/deepseek-v4-pro", label: "☁️ DeepSeek V4 Pro", type: "cloud" },
       ];
       return all.find((m) => m.id === id) || null;
@@ -209,14 +209,14 @@ describe("Bot E2E — Message Handler", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "llama/qwen3.5-0.8b",
+      model: "llama/llama3.2-1b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
       apiKey: "ollama",
     });
     mockRouteSync.mockReturnValue({
-      model: "llama/qwen3.5-0.8b",
+      model: "llama/llama3.2-1b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -257,7 +257,7 @@ describe("Bot E2E — Message Handler", () => {
 
     // Model notification sent
     expect(ctx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("qwen3.5-0.8b"),
+      expect.stringContaining("llama3.2-1b"),
       expect.any(Object),
     );
   });
@@ -509,7 +509,7 @@ describe("Bot E2E — Callbacks (Model Selection)", () => {
     const handler = bot._callbackHandlers[0].handler;
 
     // First set a manual override
-    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/qwen3.5-0.8b");
+    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/llama3.2-1b");
 
     // Then reset to auto
     const ctx = createMockContext({
@@ -528,7 +528,7 @@ describe("Bot E2E — Error Recovery", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "llama/qwen3.5-0.8b",
+      model: "llama/llama3.2-1b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -588,7 +588,7 @@ describe("Bot E2E — Queue Integrity", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "llama/qwen3.5-0.8b",
+      model: "llama/llama3.2-1b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -706,7 +706,7 @@ describe("Bot E2E — Model Override Persistence", () => {
   beforeEach(() => {
     resetAll();
     mockRoute.mockResolvedValue({
-      model: "llama/qwen3.5-0.8b",
+      model: "llama/llama3.2-1b",
       type: "local",
       reason: "default",
       baseUrl: "http://localhost:11434/v1",
@@ -739,7 +739,7 @@ describe("Bot E2E — Model Override Persistence", () => {
     registerCallbacks(bot);
 
     // First set a manual override, then switch to auto
-    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/qwen3.5-0.8b");
+    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/llama3.2-1b");
 
     const handler = bot._callbackHandlers[0].handler;
     const ctx = createMockContext({
@@ -781,7 +781,7 @@ describe("Bot E2E — Model Override Persistence", () => {
     registerMessageHandler(bot);
 
     // Override already in memory from a previous callback
-    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/qwen3.5-0.8b");
+    mockModelOverride.set(DEFAULT_CHAT_ID, "llama/llama3.2-1b");
 
     const ctx = createMockContext({ message: { text: "hello" } });
     await bot._messageHandlers[0].handler(ctx);

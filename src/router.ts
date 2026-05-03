@@ -25,9 +25,9 @@ interface ModelEntry {
 
 const MODELS: Record<string, ModelEntry> = {
   // One tiny local model for routing + simple tasks
-  "llama/qwen3.5-0.8b": {
-    id: "llama/qwen3.5-0.8b",
-    description: "лёгкая 0.8B — простые вопросы, приветствия, быстрые ответы",
+  "llama/llama3.2-1b": {
+    id: "llama/llama3.2-1b",
+    description: "лёгкая 1.2B — простые вопросы, приветствия, быстрые ответы",
     type: "local",
     baseUrl: `http://${LLAMA_BASE}/v1`,
     apiKey: "ollama",
@@ -56,14 +56,14 @@ const MODELS: Record<string, ModelEntry> = {
 };
 
 // Default: the tiny local model
-const DEFAULT_MODEL = "llama/qwen3.5-0.8b";
+const DEFAULT_MODEL = "llama/llama3.2-1b";
 
 // ── Router classifier prompt (simplified — fewer options) ────────────
 
 const CLASSIFIER_SYSTEM = `Ты — умный роутер AI-ассистента. Твоя задача: проанализировать запрос пользователя и выбрать лучшую модель из списка.
 
 Правила:
-1. Для односложных вопросов, приветствий — лёгкая локальная (qwen3.5-0.8b)
+1. Для простых вопросов, приветствий — лёгкая локальная (llama3.2-1b)
 2. Для изображений/скриншотов — vision (gemini-2.5-flash)
 3. Для РЕФАКТОРИНГА, АУДИТА безопасности, МИГРАЦИЙ, анализа больших объёмов — облачная (deepseek-v4-pro)
 4. Для ПОИСКА В ИНТЕРНЕТЕ, поиска информации, новостей, цен, товаров — облачная быстрая (deepseek-v4-flash)
