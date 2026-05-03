@@ -13,7 +13,7 @@ if [ ! -f "$MODEL" ]; then
   fi
 
   echo "⬇️  Downloading Llama-3.2-1B Q4_K_M GGUF (~800 MB)..."
-  if ! curl -L --fail -o "$MODEL" -H "Authorization: Bearer $HF_TOKEN" "$URL"; then
+  if ! curl -L --fail --no-progress-meter -o "$MODEL" -H "Authorization: Bearer $HF_TOKEN" "$URL"; then
     echo "❌ Download failed. Check HF_TOKEN."
     rm -f "$MODEL"
     exit 1
@@ -33,4 +33,4 @@ else
 fi
 
 echo "🚀 Starting llama-server..."
-exec /llama-server "$@"
+exec llama-server "$@"
