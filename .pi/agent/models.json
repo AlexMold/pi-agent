@@ -2,14 +2,18 @@
   "providers": {
     "llama": {
       "baseUrl": "http://llama-service:8081/v1",
-      "api": "openai-completions",
       "apiKey": "not-needed",
-      "compat": {
-        "supportsDeveloperRole": false,
-        "supportsReasoningEffort": false
-      },
+      "api": "openai-completions",
       "models": [
-        { "id": "qwen3.5-0.8b", "name": "Qwen 3.5-0.8B (Routing)", "contextWindow": 2048 }
+        {
+          "id": "qwen3.5-0.8b",
+          "name": "Qwen 3.5-0.8B (Routing)",
+          "contextWindow": 2048,
+          "reasoning": false,
+          "input": ["text"],
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+          "maxTokens": 2048
+        }
       ]
     }
   }
