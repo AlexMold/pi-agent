@@ -37,14 +37,14 @@ describe("SmartRouter.routeSync – keyword routing", () => {
     expect(result.type).toBe("cloud");
   });
 
-  it("routes math tasks to qwen heavy model", () => {
+  it("routes math tasks to local model (no heavy model)", () => {
     const result = SmartRouter.routeSync("реши математическую задачу с доказательством", []);
-    expect(result.model).toContain("qwen3.6");
+    expect(result.type).toBe("local");
   });
 
-  it("routes generic tasks to default gemma4:31b", () => {
+  it("routes generic tasks to default local model", () => {
     const result = SmartRouter.routeSync("что такое dependency injection?", []);
-    expect(result.model).toBe("ollama/gemma4:31b");
+    expect(result.model).toBe("ollama/gemma4:latest");
     expect(result.type).toBe("local");
   });
 
