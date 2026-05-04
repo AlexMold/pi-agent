@@ -5,15 +5,16 @@ Telegram AI-ассистент с умным роутингом, векторн�
 ## Architecture
 
 ```
-User (Telegram) → grammY Bot → SmartRouter → Pi-Agent → Response
-                                  │               │
-                             ┌────┴────┐     ┌────┴──────────────┐
-                             │ Local   │     │ Cloud             │
-                             │ Ollama  │     │ DeepSeek V4       │
-                             └─────────┘     └───────────────────┘
-                                   │
-                    ┌──────────────┼──────────────┐
-                    │              │              │
+User (Telegram) → grammY Bot → SmartRouter → LLM → Response
+                                  │              │
+                             ┌────┴────┐    ┌────┴─────────────┐
+                             │ Local   │    │ Cloud            │
+                             │ llama   │    │ DeepSeek / Gemini│
+                             │ (cpp)   │    │                  │
+                             └─────────┘    └──────────────────┘
+                                  │
+                    ┌─────────────┼──────────────┐
+                    │             │              │
                LongTermMemory  Reminders    Calendar
                (LanceDB)       (JSON+R2)   (Google API)
 ```
@@ -23,6 +24,7 @@ User (Telegram) → grammY Bot → SmartRouter → Pi-Agent → Response
 | Container | Image | Purpose |
 |-----------|-------|---------|
 | `ai-assistant-pro` | `node:24-slim` (~400 MB) | Bot, Pi-Agent, LanceDB, tools |
+| `llama-service` | `llama.cpp:server` (~1 GB) | Local routing model |
 | `ai-cron-worker` | `node:24-alpine` (~60 MB) | Reminders every 60s |
 
 ## Components
@@ -30,9 +32,9 @@ User (Telegram) → grammY Bot → SmartRouter → Pi-Agent → Response
 | File | Purpose |
 |------|---------|
 | `src/bot.ts` | Telegram bot (grammY) — main orchestrator |
-| `src/router.ts` | SmartRouter: keyword-based + token-count routing |
+| `src/router.ts` | SmartRouter: LLM classifier + keyword fallback |
 | `src/memory.ts` | Hybrid memory: LanceDB (semantic) + ring buffer (time-based) |
-| `src/agent.ts` | Pi-Agent runner with extension loading |
+| `src/agent.ts` | LLM runner: Pi-Agent (cloud) + direct API (local) |
 | `src/services/reminder.ts` | Per-user reminders with persistent JSON storage |
 | `src/services/cron-worker.js` | Lightweight reminder checker (separate container) |
 | `src/services/message-handler.ts` | Voice/text/photo extraction |
@@ -56,60 +58,56 @@ User (Telegram) → grammY Bot → SmartRouter → Pi-Agent → Response
 |------|-------|----------|
 | `src/tests/router.test.ts` | 11 | SmartRouter keyword routing |
 | `src/tests/chat-queue.test.ts` | 5 | Per-chat preemptive queue |
-| `src/tests/bot-e2e.test.ts` | 16 | Full bot pipeline (mock-based) |
+| `src/tests/bot-e2e.test.ts` | 20 | Full bot pipeline (mock-based) |
 
 ## Quick Start
 
-### 1. Host: Start Ollama
+### 1. Get HuggingFace token
 
-```bash
-ollama serve
-ollama pull gemma4:31b
-ollama pull gemma4:latest
-ollama pull qwen3.6:35b-a3b-q8_0
-ollama pull nomic-embed-text
+```
+https://huggingface.co/settings/tokens
 ```
 
-### 2. Host: Start Whisper.cpp server
-
-```bash
-./whisper-server -m models/ggml-large-v3.bin --port 8080
-```
-
-### 3. Create `.env`
+### 2. Create `.env`
 
 ```env
 TELEGRAM_TOKEN=...
 DEEPSEEK_API_KEY=...
+GEMINI_API_KEY=...
 TAVILY_API_KEY=...
 SERPER_API_KEY=...
+HF_TOKEN=hf_...
 ```
 
-### 4. Docker
+### 3. Docker
 
 ```bash
 docker compose up --build -d
 docker compose logs -f
 ```
 
-### 5. Verify
+First start downloads Llama-3.2-1B GGUF (~785 MB) automatically.
+
+### 4. Verify
 
 ```bash
 npm run lint       # ESLint (JS files only)
 npx tsc --noEmit   # TypeScript typecheck
-npm test           # 32 tests
+npm test           # 36 tests
 ```
 
 ## Features
 
 ### Smart Router
 
-- **Simple queries** → local Ollama (Gemma 4 / Qwen 3.6)
+- **Simple queries** → local Llama-3.2-1B (via llama.cpp server)
 - **Code/refactoring/security** → cloud DeepSeek V4 Pro
 - **Search keywords** → cloud DeepSeek V4 Flash
+- **Images/photos** → cloud Gemini 2.5 Flash
 - **>100k tokens** → automatic cloud overflow
 - **Local failure** → automatic fallback to cloud
 - Manual override via `/model` command
+- Model selection persists in LanceDB across restarts
 
 ### Long-Term Memory
 
@@ -155,17 +153,19 @@ npm test           # 32 tests
 
 ## Available Models
 
-### Local (Ollama)
+### Local
 
-- `ollama/gemma4:31b` — general tasks
-- `ollama/gemma4:latest` — lightweight
-- `ollama/qwen3.6:35b-a3b-q8_0` — math/heavy logic
-- `ollama/minicpm-v:8b-2.6-q4_K_M` — vision (images)
+| Model | Purpose |
+|-------|---------|
+| `llama/llama3.2-1b` | Simple queries, routing (785 MB GGUF, llama.cpp server) |
 
 ### Cloud
 
-- `deepseek/deepseek-v4-pro` — complex tasks
-- `deepseek/deepseek-v4-flash` — fast/cheap
+| Model | Purpose |
+|-------|---------|
+| `deepseek/deepseek-v4-pro` | Complex tasks, security, migrations |
+| `deepseek/deepseek-v4-flash` | Fast, cheap, web search |
+| `google/gemini-2.5-flash` | Vision (images, photos) |
 
 ## Project Skills
 
@@ -175,3 +175,4 @@ Skills in `.pi/skills/` and `~/.pi/agent/skills/`:
 |-------|---------|
 | `verify-before-merge` | Run lint + tsc + test before declaring done |
 | `commit-and-push` | Conventional commits + push workflow |
+| `plan-first` | Plan → approve → execute workflow |
