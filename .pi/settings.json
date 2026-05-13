@@ -10,7 +10,5 @@
     "root": ".",
     "allowOutside": false
   },
-  "skills": [],
-  "defaultModel": "ollama/qwen3.6:35b-a3b-q8_0",
-  "defaultThinkingLevel": "medium"
+  "skills": []
 }
