@@ -12,6 +12,14 @@ import { writeFile } from "fs/promises";
 import { join } from "path";
 import { config } from "./config.js";
 
+// ── Security note ─────────────────────────────────────────────────
+// Telegram Bot API requires file downloads via:
+//   https://api.telegram.org/file/bot<token>/<file_path>
+// The token unavoidably appears in the URL. To minimise exposure:
+//   - The fetch() call stays inside the Docker container
+//   - The URL is NEVER logged (only file_path is logged)
+//   - The token value is loaded from .env, not hardcoded
+
 export interface ExtractedMessage {
   query: string;
   imagePath?: string;
