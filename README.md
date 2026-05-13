@@ -1,6 +1,6 @@
 # AI Assistant Pro
 
-Telegram AI-ассистент с умным роутингом, векторной памятью, голосовым вводом и интеграциями: календарь, умный дом, напоминания, веб-поиск.
+Telegram AI assistant with smart routing, vector memory, voice input, and integrations: calendar, smart home, reminders, web search.
 
 ## Architecture
 
@@ -117,7 +117,7 @@ npm test           # 36 tests
 
 ### Reminders
 
-- `set_reminder` via natural language: "напомни через 10 минут", "напомни в 19:00"
+- `set_reminder` via natural language: "remind me in 10 minutes", "remind me at 19:00"
 - Cron worker checks every 60s and sends Telegram push notifications
 - Persistent storage in shared workspace volume
 
