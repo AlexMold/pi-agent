@@ -16,7 +16,7 @@
 
 import type { Bot, Context } from "grammy";
 import { config } from "../services/config.js";
-import { extractMessage } from "../services/message-handler.js";
+import { extractMessage, extractReplyContext } from "../services/message-handler.js";
 import { sendChunkedResponse } from "../helpers/response.js";
 import { cleanResponse } from "../helpers/markdown.js";
 import { SmartRouter } from "../router.js";
@@ -30,10 +30,16 @@ import { recordUsage, calcCost } from "../services/usage-tracker.js";
 
 export function registerMessageHandler(bot: Bot): void {
   bot.on(["message:text", "message:voice", "message:photo"], async (ctx: Context) => {
-    // 1. Extract query from message
-    const extracted = await extractMessage(ctx);
+    // 1. Extract query and (in parallel) the reply context, if any
+    const [extracted, replyCtx] = await Promise.all([
+      extractMessage(ctx),
+      extractReplyContext(ctx),
+    ]);
     if (!extracted || !extracted.query.trim()) return;
-    const { query, imagePath } = extracted;
+    const { query, imagePath: userImagePath } = extracted;
+    // If the user is replying to a photo, the bot re-attached that photo to
+    // give the LLM visual context. That overrides any image the user just sent.
+    const imagePath = replyCtx?.imagePath ?? userImagePath;
 
     const chatId = ctx.chat?.id ?? 0;
     console.log(`[In] chat=${chatId}: ${query.slice(0, 100)}`);
@@ -58,18 +64,26 @@ export function registerMessageHandler(bot: Bot): void {
     // 4. Store user message in memory (fire-and-forget)
     try { await memory.remember(query, { role: "user", chatId }); } catch (err: any) { console.error("[Memory] remember failed:", err.message); }
 
-    // 5. Capture replied-to message for context
-    const replyTarget = ctx.message?.reply_to_message;
+    // 5. Build reply context prefix from the new extractReplyContext helper.
+    //    Handles text/caption + media placeholders, bot-message tagging, and
+    //    a 1-hop chain walk.
     let replyContext = "";
-    if (replyTarget?.text || replyTarget?.caption) {
-      const targetText = replyTarget.text || replyTarget.caption || "";
-      replyContext = `<replied_to>${targetText}</replied_to>\n\n`;
-      console.log(`[Reply] User replied to: ${targetText.slice(0, 80)}`);
-      // Also store the replied-to message in memory for future recall
+    if (replyCtx) {
+      const chain = replyCtx.parentText
+        ? `${replyCtx.parentText}\n↳ ${replyCtx.text}`
+        : replyCtx.text;
+      replyContext =
+        `<replied_to kind="${replyCtx.kind}" author="${replyCtx.authorRole}">\n` +
+        `${chain}\n</replied_to>\n\n`;
+      console.log(
+        `[Reply] user replied to ${replyCtx.kind}/${replyCtx.authorRole} ` +
+        `(chain=${replyCtx.hasParent}): ${replyCtx.text.slice(0, 80)}`,
+      );
+      // Persist the immediate reply target in memory (semantic recall)
       try {
         await memory.remember(
-          `[Reply to]: ${targetText}`,
-          { role: "user", chatId },
+          `[Reply to]: ${replyCtx.text}`,
+          { role: replyCtx.authorRole, chatId },
         );
       } catch (_) {}
     }
