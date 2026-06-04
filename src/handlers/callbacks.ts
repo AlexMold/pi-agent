@@ -6,6 +6,8 @@ import type { Bot, Context } from "grammy";
 import { config } from "../services/config.js";
 import { memory } from "../memory.js";
 import { buildModelKeyboard } from "./commands.js";
+import { getStats } from "../services/usage-tracker.js";
+import { InlineKeyboard } from "grammy";
 
 // ── Track last known model per chat (not message IDs) ───────────
 const lastModelStatus = new Map<number, string>(); // chatId → "auto" | "modelId"
@@ -93,5 +95,57 @@ export function registerCallbacks(bot: Bot): void {
         reply_markup: buildModelKeyboard(current),
       },
     );
+  });
+
+  // Stats range switcher (24h / 7d / 30d / all)
+  bot.callbackQuery(/^stats:(.+)$/, async (ctx: Context) => {
+    const chatId = ctx.chat?.id ?? 0;
+    const rangeKey = (ctx.match as string[])[1];
+
+    const RANGES: Record<string, { label: string; ms: number | undefined }> = {
+      "24h":  { label: "24 часа",   ms: 24 * 60 * 60 * 1000 },
+      "7d":   { label: "7 дней",    ms: 7 * 24 * 60 * 60 * 1000 },
+      "30d":  { label: "30 дней",   ms: 30 * 24 * 60 * 60 * 1000 },
+      "all":  { label: "всё время", ms: undefined },
+    };
+
+    const range = RANGES[rangeKey];
+    if (!range) {
+      await ctx.answerCallbackQuery("Неизвестный диапазон");
+      return;
+    }
+
+    await ctx.answerCallbackQuery(`📊 ${range.label}`);
+
+    const sinceMs = range.ms !== undefined ? Date.now() - range.ms : undefined;
+    const stats = await getStats(chatId, sinceMs);
+
+    const text =
+      `<b>📊 Статистика</b> · <i>${range.label}</i>\n\n` +
+      `Сообщений: <code>${stats.messages}</code>\n` +
+      `Токены: <code>${stats.inputTokens.toLocaleString()}</code> in / ` +
+      `<code>${stats.outputTokens.toLocaleString()}</code> out\n` +
+      `💰 Примерно: <code>$${stats.cost.toFixed(4)}</code>\n\n` +
+      (stats.byModel.length === 0
+        ? `<i>Нет данных</i>`
+        : `<b>По моделям:</b>\n` +
+          stats.byModel
+            .map(
+              (m) =>
+                `• <code>${m.model}</code>: ${m.messages} msg · $${m.cost.toFixed(4)}`,
+            )
+            .join("\n"));
+
+    const kb = new InlineKeyboard()
+      .text("24ч", "stats:24h")
+      .text("7д", "stats:7d")
+      .text("30д", "stats:30d")
+      .text("Всё", "stats:all");
+
+    try {
+      await ctx.editMessageText(text, { parse_mode: "HTML", reply_markup: kb });
+    } catch {
+      // Message not modified — just answer (already done above)
+    }
   });
 }

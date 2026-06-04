@@ -11,6 +11,17 @@
 import { spawn } from "child_process";
 import type { RouteResult } from "./router.js";
 
+/** Token usage returned by LLM (best-effort — may be 0 if not reported). */
+export interface AgentUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface AgentResult {
+  text: string;
+  usage: AgentUsage;
+}
+
 /**
  * Run a task through Pi-Agent.
  *
@@ -24,6 +35,21 @@ export async function executeAgentTask(
   imagePath?: string,
   signal?: AbortSignal,
 ): Promise<string> {
+  const result = await executeAgentTaskWithUsage(task, route, imagePath, signal);
+  return result.text;
+}
+
+/**
+ * Same as executeAgentTask, but also returns token usage when the underlying
+ * API exposes it (cloud OpenAI-compatible APIs include `usage` in JSON).
+ * Falls back to zero values when usage is not reported.
+ */
+export async function executeAgentTaskWithUsage(
+  task: string,
+  route: RouteResult,
+  imagePath?: string,
+  signal?: AbortSignal,
+): Promise<AgentResult> {
   // If already aborted before we even start, bail out immediately
   if (signal?.aborted) {
     const err = new Error("Aborted before start");
@@ -151,7 +177,9 @@ export async function executeAgentTask(
           ),
         );
       } else {
-        resolve(result);
+        // Best-effort token extraction from pi's streamed JSON output
+        const usage = extractUsageFromOutput(stdout);
+        resolve({ text: result, usage });
       }
     });
 
@@ -169,7 +197,7 @@ async function callLocalModel(
   task: string,
   route: RouteResult,
   signal?: AbortSignal,
-): Promise<string> {
+): Promise<AgentResult> {
   const url = `${route.baseUrl}/chat/completions`;
   console.log(`[Agent] Direct API call: ${url}`);
 
@@ -199,6 +227,32 @@ async function callLocalModel(
 
   const data = (await res.json()) as any;
   const text = data.choices?.[0]?.message?.content || "";
-  console.log(`[Agent] Local model response (${text.length} chars): ${text.slice(0, 100)}`);
-  return text;
+  const usage: AgentUsage = {
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+  };
+  console.log(
+    `[Agent] Local model response (${text.length} chars, ${usage.inputTokens}+${usage.outputTokens} tok): ${text.slice(0, 100)}`,
+  );
+  return { text, usage };
+}
+
+/**
+ * Best-effort extraction of token usage from pi's streamed stdout.
+ * Pi emits the OpenAI-compatible `usage` block as part of the final JSON chunk.
+ * We scan the full output for the last `{"prompt_tokens":N,"completion_tokens":M,...}`
+ * pattern, since the stream may contain many JSON fragments.
+ */
+function extractUsageFromOutput(stdout: string): AgentUsage {
+  // Regex matches the OpenAI usage object regardless of property order
+  const re =
+    /"usage"\s*:\s*\{[^}]*?"prompt_tokens"\s*:\s*(\d+)[^}]*?"completion_tokens"\s*:\s*(\d+)/g;
+  let lastIn = 0;
+  let lastOut = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(stdout)) !== null) {
+    lastIn = parseInt(match[1], 10);
+    lastOut = parseInt(match[2], 10);
+  }
+  return { inputTokens: lastIn, outputTokens: lastOut };
 }

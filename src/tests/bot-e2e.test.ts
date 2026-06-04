@@ -78,6 +78,7 @@ vi.mock("../services/config.js", () => ({
 
 vi.mock("../agent.js", () => ({
   executeAgentTask: mockExecuteAgentTask,
+  executeAgentTaskWithUsage: mockExecuteAgentTask,
 }));
 
 vi.mock("../memory.js", () => ({
@@ -222,7 +223,10 @@ describe("Bot E2E — Message Handler", () => {
       baseUrl: "http://localhost:11434/v1",
       apiKey: "ollama",
     });
-    mockExecuteAgentTask.mockResolvedValue("Echo: test query");
+    mockExecuteAgentTask.mockResolvedValue({
+      text: "Echo: test query",
+      usage: { inputTokens: 0, outputTokens: 0 },
+    });
     mockExtractMessage.mockImplementation(async (ctx: any) => ({
       query: ctx.message?.text || "default query",
     }));
@@ -294,7 +298,7 @@ describe("Bot E2E — Message Handler", () => {
     // First agent call hangs indefinitely until aborted
     let firstAborted = false;
     mockExecuteAgentTask.mockImplementation(async (_prompt: string, _route: any, _img: any, signal?: AbortSignal) => {
-      return new Promise<string>((resolve, reject) => {
+      return new Promise<{ text: string; usage: { inputTokens: number; outputTokens: number } }>((resolve, reject) => {
         if (signal) {
           signal.addEventListener("abort", () => {
             firstAborted = true;
@@ -317,7 +321,10 @@ describe("Bot E2E — Message Handler", () => {
     // Small tick to let the first task start
     await vi.advanceTimersByTimeAsync(10);
     // Second message preempts
-    mockExecuteAgentTask.mockResolvedValue("Ответ на второй");
+    mockExecuteAgentTask.mockResolvedValue({
+      text: "Ответ на второй",
+      usage: { inputTokens: 0, outputTokens: 0 },
+    });
     await bot._messageHandlers[0].handler(ctx2);
 
     // Let queue settle
@@ -345,7 +352,10 @@ describe("Bot E2E — Message Handler", () => {
     // First call (local) fails, second (cloud) succeeds
     mockExecuteAgentTask
       .mockRejectedValueOnce(new Error("Ollama unavailable"))
-      .mockResolvedValueOnce("Cloud fallback response");
+      .mockResolvedValueOnce({
+        text: "Cloud fallback response",
+        usage: { inputTokens: 0, outputTokens: 0 },
+      });
 
     const bot = createMockBot();
     registerMessageHandler(bot);
@@ -365,7 +375,10 @@ describe("Bot E2E — Message Handler", () => {
 
   // ── 5. Agent success stores assistant response ────────────────
   it("stores assistant response in memory after successful agent run", async () => {
-    mockExecuteAgentTask.mockResolvedValue("Assistant reply text");
+    mockExecuteAgentTask.mockResolvedValue({
+      text: "Assistant reply text",
+      usage: { inputTokens: 0, outputTokens: 0 },
+    });
 
     const bot = createMockBot();
     registerMessageHandler(bot);

@@ -35,6 +35,7 @@ class Config {
   readonly llamaHost = process.env.LLAMA_HOST || "host.docker.internal:8081";
   readonly deepseekApiKey = process.env.DEEPSEEK_API_KEY || "";
   readonly geminiApiKey = process.env.GEMINI_API_KEY || "";
+
   readonly piPath = process.env.PI_PATH || "/app/node_modules/.bin/pi";
 
   readonly localModels: ModelDef[] = [

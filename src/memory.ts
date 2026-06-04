@@ -45,6 +45,7 @@ export class LongTermMemory {
   private db!: Connection;
   private table!: Table;
   private modelTable!: Table;
+  private usageTable!: Table;
   private initialized = false;
 
   async init(): Promise<void> {
@@ -78,8 +79,75 @@ export class LongTermMemory {
       this.modelTable = await this.db.openTable("model_overrides");
     }
 
+    // Usage tracking table (per-message LLM cost records)
+    if (!tables.includes("usage")) {
+      this.usageTable = await this.db.createTable("usage", [
+        {
+          chatId: 0,
+          model: "__init__",
+          inputTokens: 0,
+          outputTokens: 0,
+          cost: 0,
+          timestamp: Date.now(),
+          queryLen: 0,
+        },
+      ]);
+    } else {
+      this.usageTable = await this.db.openTable("usage");
+    }
+
     this.initialized = true;
     console.log("[Memory] LanceDB + ring buffer initialized");
+  }
+
+  /** Store a usage record (cost + tokens) in the usage table. */
+  async recordUsage(rec: {
+    chatId: number;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    timestamp: number;
+    queryLen: number;
+  }): Promise<void> {
+    if (!this.initialized) await this.init();
+    try {
+      await this.usageTable.add([rec]);
+    } catch (err: any) {
+      console.error("[Memory] recordUsage failed:", err.message);
+    }
+  }
+
+  /** Get usage rows for a chat, optionally since a timestamp. */
+  async getUsage(
+    chatId: number,
+    sinceMs?: number,
+  ): Promise<
+    Array<{
+      chatId: number;
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      cost: number;
+      timestamp: number;
+      queryLen: number;
+    }>
+  > {
+    if (!this.initialized) await this.init();
+    try {
+      const cond =
+        sinceMs !== undefined
+          ? `chatId = ${chatId} AND timestamp >= ${sinceMs}`
+          : `chatId = ${chatId}`;
+      const rows = await this.usageTable
+        .query()
+        .where(cond)
+        .toArray();
+      return rows as any[];
+    } catch (err: any) {
+      console.error("[Memory] getUsage failed:", err.message);
+      return [];
+    }
   }
 
   /** Store a message in both ring buffer and LanceDB */

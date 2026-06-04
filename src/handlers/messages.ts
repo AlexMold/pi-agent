@@ -21,11 +21,12 @@ import { sendChunkedResponse } from "../helpers/response.js";
 import { cleanResponse } from "../helpers/markdown.js";
 import { SmartRouter } from "../router.js";
 import type { RouteResult } from "../router.js";
-import { executeAgentTask } from "../agent.js";
+import { executeAgentTaskWithUsage } from "../agent.js";
 import { memory } from "../memory.js";
 import { chatQueue } from "../services/chat-queue.js";
 import type { ChatTask } from "../services/chat-queue.js";
 import { ensureModelStatus } from "./callbacks.js";
+import { recordUsage, calcCost } from "../services/usage-tracker.js";
 
 export function registerMessageHandler(bot: Bot): void {
   bot.on(["message:text", "message:voice", "message:photo"], async (ctx: Context) => {
@@ -113,12 +114,14 @@ async function runAgentTask(
   }, 4000);
 
   try {
-    const raw = await executeAgentTask(
+    const result = await executeAgentTaskWithUsage(
       task.ctxPrefix + task.query,
       route,
       task.imagePath,
       task.signal,          // ← pass the abort signal
     );
+    const raw = result.text;
+    const usage = result.usage;
 
     // If we got aborted between the LLM finishing and here, skip reply
     if (task.signal.aborted) return;
@@ -126,6 +129,17 @@ async function runAgentTask(
     // Store assistant response (cleaned, for memory/history)
     const chatId = ctx.chat?.id ?? 0;
     try { await memory.remember(cleanResponse(raw), { role: "assistant", chatId }); } catch (err: any) { console.error("[Memory] remember failed:", err.message); }
+
+    // Record token usage + cost (fire-and-forget)
+    recordUsage({
+      chatId,
+      model: route.model,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cost: calcCost(route.model, usage.inputTokens, usage.outputTokens),
+      timestamp: Date.now(),
+      queryLen: task.query.length,
+    });
 
     // sendChunkedResponse handles its own cleaning + chunking
     await sendChunkedResponse(ctx, raw);
@@ -216,9 +230,18 @@ async function handleAgentError(
         baseUrl: "https://api.deepseek.com/v1",
         apiKey: config.deepseekApiKey,
       };
-      const raw = await executeAgentTask(ctxPrefix + query, cr, undefined, signal);
+      const fbResult = await executeAgentTaskWithUsage(ctxPrefix + query, cr, undefined, signal);
       if (signal?.aborted) return;
-      await sendChunkedResponse(ctx, raw);
+      recordUsage({
+        chatId: ctx.chat?.id ?? 0,
+        model: cr.model,
+        inputTokens: fbResult.usage.inputTokens,
+        outputTokens: fbResult.usage.outputTokens,
+        cost: calcCost(cr.model, fbResult.usage.inputTokens, fbResult.usage.outputTokens),
+        timestamp: Date.now(),
+        queryLen: query.length,
+      });
+      await sendChunkedResponse(ctx, fbResult.text);
     } catch (fbErr: any) {
       if (fbErr?.name === "AbortError") return;
       await ctx.reply(`❌ Облако тоже не ответило: ${fbErr.message}`);

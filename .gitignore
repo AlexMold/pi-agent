@@ -18,3 +18,8 @@ credentials/
 auth.json
 
 models/
+
+# Pipeline traces (4-agent orchestration)
+.github/pipeline/
+.github/agents/
+.github/skills/
