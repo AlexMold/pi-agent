@@ -8,6 +8,8 @@ services:
     restart: always
     depends_on:
       - llama-service
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./workspace:/app/workspace
       - ./memory_db:/app/memory_db

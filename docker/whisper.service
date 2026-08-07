@@ -1,0 +1,14 @@
+[Unit]
+Description=Whisper.cpp Speech-to-Text Server
+After=network-online.target
+
+[Service]
+Type=simple
+User=agrib
+WorkingDirectory=/home/agrib/workplace/pi-agent
+ExecStart=/home/agrib/workplace/pi-agent/.whisper/build/bin/whisper-server -m /home/agrib/workplace/pi-agent/.whisper/models/ggml-large-v3-turbo.bin --port 8080 --host 0.0.0.0
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

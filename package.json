@@ -19,8 +19,8 @@
     "docker:logs": "docker compose logs -f",
     "docker:reload": "npm run docker:down && npm run docker:build && npm run docker:up",
     "whisper:install": "git clone https://github.com/ggerganov/whisper.cpp .whisper && cd .whisper && make -j",
-    "whisper:model": "cd .whisper && bash models/download-ggml-model.sh large-v3",
-    "whisper:start": ".whisper/build/bin/whisper-server -m .whisper/models/ggml-large-v3.bin --port 8080 --host 0.0.0.0",
+    "whisper:model": "cd .whisper && bash models/download-ggml-model.sh large-v3-turbo",
+    "whisper:start": ".whisper/build/bin/whisper-server -m .whisper/models/ggml-large-v3-turbo.bin --port 8080 --host 0.0.0.0",
     "whisper:stop": "pkill -f whisper-server || true",
     "whisper:setup": "npm run whisper:install && npm run whisper:model",
     "dev:full": "npm run whisper:start & sleep 2 && npm run docker:up && npm run docker:logs"
