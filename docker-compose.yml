@@ -26,6 +26,8 @@ services:
       - WHISPER_HOST=${WHISPER_HOST:-host.docker.internal:8080}
       - WHISPER_LANG=${WHISPER_LANG:-ru}
       - ALLOWED_USER_ID=${ALLOWED_USER_ID}
+      # cwd for the spawned pi agent — mounted volume, not the container layer
+      - WORKSPACE_DIR=/app/workspace
 
   # ── Tiny local model for routing (Qwen 3.5-1B via llama.cpp) ─────
   llama-service:

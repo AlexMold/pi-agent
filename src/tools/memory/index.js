@@ -6,6 +6,7 @@
  */
 
 import * as lancedb from "@lancedb/lancedb";
+import { existsSync } from "fs";
 import { format } from "date-fns";
 
 const OLLAMA_BASE = process.env.OLLAMA_HOST || "host.docker.internal:11434";
@@ -15,7 +16,10 @@ let table;
 
 async function init() {
   if (db) return;
-  const dbPath = "/app/memory_db/ai_context";
+  // Docker keeps the DB at /app/memory_db (mounted); a checkout keeps it in ./memory_db
+  const dbPath =
+    process.env.MEMORY_DB ||
+    (existsSync("/app/memory_db") ? "/app/memory_db/ai_context" : "memory_db/ai_context");
   console.log(`[Memory Tool] Connecting to LanceDB at ${dbPath}`);
   db = await lancedb.connect(dbPath);
   const tables = await db.tableNames();

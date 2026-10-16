@@ -45,7 +45,12 @@ async function waitForService(url: string, timeoutMs: number): Promise<void> {
 // ── Init ──────────────────────────────────────────────────────────
 
 // Wait for llama-service to be ready (may be downloading model)
-await waitForService(`http://${config.llamaHost}/health`, 120_000);
+// — skipped when running without Docker (SKIP_LLAMA_WAIT=1)
+if (process.env.SKIP_LLAMA_WAIT !== "1") {
+  await waitForService(`http://${config.llamaHost}/health`, 120_000);
+} else {
+  console.log("[Init] Skipping llama-service wait (SKIP_LLAMA_WAIT=1)");
+}
 
 const bot = new Bot(config.telegramToken);
 

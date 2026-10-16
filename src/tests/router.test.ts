@@ -9,15 +9,15 @@ import { describe, it, expect } from "vitest";
 import { SmartRouter } from "../router.js";
 
 describe("SmartRouter.routeSync – keyword routing", () => {
-  it("routes simple greetings to lightweight llama3.2-1b", () => {
+  it("routes simple greetings to cloud flash", () => {
     const result = SmartRouter.routeSync("привет", []);
-    expect(result.model).toBe("llama/llama3.2-1b");
-    expect(result.type).toBe("local");
+    expect(result.model).toBe("deepseek/deepseek-v4-flash");
+    expect(result.type).toBe("cloud");
   });
 
-  it("routes 'hi' greeting to lightweight model", () => {
+  it("routes 'hi' greeting to cloud flash", () => {
     const result = SmartRouter.routeSync("hi", []);
-    expect(result.model).toBe("llama/llama3.2-1b");
+    expect(result.model).toBe("deepseek/deepseek-v4-flash");
   });
 
   it("routes refactoring tasks to cloud pro model", () => {
@@ -37,15 +37,16 @@ describe("SmartRouter.routeSync – keyword routing", () => {
     expect(result.type).toBe("cloud");
   });
 
-  it("routes math tasks to local model (no heavy model)", () => {
+  it("routes math tasks to default model (not the heavy one)", () => {
     const result = SmartRouter.routeSync("реши математическую задачу с доказательством", []);
-    expect(result.type).toBe("local");
+    expect(result.model).toBe("deepseek/deepseek-v4-flash");
+    expect(result.type).toBe("cloud");
   });
 
-  it("routes generic tasks to default local model", () => {
+  it("routes generic tasks to default cloud model", () => {
     const result = SmartRouter.routeSync("что такое dependency injection?", []);
-    expect(result.model).toBe("llama/llama3.2-1b");
-    expect(result.type).toBe("local");
+    expect(result.model).toBe("deepseek/deepseek-v4-flash");
+    expect(result.type).toBe("cloud");
   });
 
   it("overflows to cloud when tokens exceed 100k", () => {

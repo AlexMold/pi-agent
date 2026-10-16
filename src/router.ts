@@ -55,22 +55,27 @@ const MODELS: Record<string, ModelEntry> = {
   },
 };
 
-// Default: the tiny local model
-const DEFAULT_MODEL = "llama/llama3.2-1b";
+// Default: local model if available, otherwise cloud
+const DEFAULT_MODEL = process.env.DEFAULT_MODEL || "llama/llama3.2-1b";
+const FALLBACK_CLOUD = "deepseek/deepseek-v4-flash";
 
 // ── Router classifier prompt (simplified — fewer options) ────────────
 
 const CLASSIFIER_SYSTEM = `Ты — умный роутер AI-ассистента. Твоя задача: проанализировать запрос пользователя и выбрать лучшую модель из списка.
 
 Правила:
-1. Для простых вопросов, приветствий — лёгкая локальная (llama3.2-1b)
+1. Для простых вопросов, приветствий — облачная быстрая (deepseek-v4-flash)
 2. Для изображений/скриншотов — vision (gemini-2.5-flash)
 3. Для РЕФАКТОРИНГА, АУДИТА безопасности, МИГРАЦИЙ, анализа больших объёмов — облачная (deepseek-v4-pro)
 4. Для ПОИСКА В ИНТЕРНЕТЕ, поиска информации, новостей, цен, товаров — облачная быстрая (deepseek-v4-flash)
-5. Экономь ресурсы: по умолчанию используй локальную модель
+5. По умолчанию используй облачную быструю модель
 
 Ответь СТРОГО в JSON:
 {"model": "ID модели", "reason": "краткое объяснение на русском"}`;
+
+// Local Ollama for classification (fast & free)
+const OLLAMA_CLASSIFY_URL = `http://${process.env.OLLAMA_HOST || "localhost:11434"}/v1/chat/completions`;
+const OLLAMA_CLASSIFY_MODEL = "qwen2.5:0.5b";
 
 // ── Router class ─────────────────────────────────────────────────────
 
@@ -144,7 +149,7 @@ export class SmartRouter {
     };
   }
 
-  /** Call tiny model via llama-server to classify the query */
+  /** Call local Ollama (qwen2.5:0.5b) to classify the query — ultra-fast */
   private static async classify(
     prompt: string,
   ): Promise<{ model: string; reason: string } | null> {
@@ -153,6 +158,7 @@ export class SmartRouter {
       .join("\n");
 
     const body = JSON.stringify({
+      model: OLLAMA_CLASSIFY_MODEL,
       messages: [
         { role: "system", content: `${CLASSIFIER_SYSTEM}\n\nДоступные модели:\n${modelList}` },
         { role: "user", content: prompt },
@@ -162,36 +168,31 @@ export class SmartRouter {
       stream: false,
     });
 
-    // Retry up to 3 times with backoff (llama-service may still be loading)
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(`http://${LLAMA_BASE}/v1/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body,
-          signal: AbortSignal.timeout(10_000),
-        });
+    try {
+      const res = await fetch(OLLAMA_CLASSIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(10_000),
+      });
 
-        if (!res.ok) {
-          console.warn(`[Router] classify HTTP ${res.status}, attempt ${attempt + 1}/3`);
-          if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
-          continue;
-        }
-
-        const data = (await res.json()) as any;
-        const text: string = data.choices?.[0]?.message?.content || "";
-        const json = text.match(/\{[\s\S]*\}/)?.[0];
-        if (!json) return null;
-        const parsed = JSON.parse(json);
-        if (!parsed.model || !parsed.reason) return null;
-        return { model: parsed.model, reason: parsed.reason };
-      } catch (err: any) {
-        console.warn(`[Router] classify failed, attempt ${attempt + 1}/3:`, err.message);
-        if (attempt < 2) await new Promise((r) => setTimeout(r, 2000));
+      if (!res.ok) {
+        console.warn(`[Router] classify HTTP ${res.status}`);
+        return null;
       }
-    }
 
-    return null;
+      const data = (await res.json()) as any;
+      const text: string = data.choices?.[0]?.message?.content || "";
+      const json = text.match(/\{[\s\S]*\}/)?.[0];
+      if (!json) return null;
+      const parsed = JSON.parse(json);
+      if (!parsed.model || !parsed.reason) return null;
+      console.log(`[Router] Ollama classify → ${parsed.model}: ${parsed.reason}`);
+      return { model: parsed.model, reason: parsed.reason };
+    } catch (err: any) {
+      console.warn("[Router] classify failed:", err.message);
+      return null;
+    }
   }
 
   /** Keyword-based fallback */
@@ -210,15 +211,15 @@ export class SmartRouter {
       return this.buildResult("deepseek/deepseek-v4-flash", "web search (keywords)");
     }
 
-    // Simple chat → local
+    // Simple chat → cloud fast
     if (
       /^(привет|hi|hello|здравствуй|как дела|hey|добр(ый|ое)|who are you|кто ты)/i.test(p) &&
       p.length < 40
     ) {
-      return this.buildResult(DEFAULT_MODEL, "simple chat (keywords)");
+      return this.buildResult(FALLBACK_CLOUD, "simple chat (keywords)");
     }
 
-    // Default → local
-    return this.buildResult(DEFAULT_MODEL, "default (efficiency)");
+    // Default → cloud fast
+    return this.buildResult(FALLBACK_CLOUD, "default (efficiency)");
   }
 }

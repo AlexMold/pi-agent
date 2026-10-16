@@ -100,7 +100,8 @@ npm test           # 36 tests
 
 ### Smart Router
 
-- **Simple queries** → local Llama-3.2-1B (via llama.cpp server)
+- **Classifier** → local Ollama `qwen2.5:0.5b` (fast, free), keyword fallback if Ollama is down
+- **Simple queries / default** → cloud DeepSeek V4 Flash (override with `DEFAULT_MODEL`)
 - **Code/refactoring/security** → cloud DeepSeek V4 Pro
 - **Search keywords** → cloud DeepSeek V4 Flash
 - **Images/photos** → cloud Gemini 2.5 Flash
@@ -157,7 +158,7 @@ npm test           # 36 tests
 
 | Model | Purpose |
 |-------|---------|
-| `llama/llama3.2-1b` | Simple queries, routing (785 MB GGUF, llama.cpp server) |
+| `llama/llama3.2-1b` | Fallback local model (785 MB GGUF, llama.cpp server) — only picked when `DEFAULT_MODEL` points at it |
 
 ### Cloud
 

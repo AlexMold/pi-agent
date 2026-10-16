@@ -9,6 +9,7 @@
  */
 
 import { spawn } from "child_process";
+import { join } from "path";
 import type { RouteResult } from "./router.js";
 
 /** Token usage returned by LLM (best-effort — may be 0 if not reported). */
@@ -67,7 +68,7 @@ export async function executeAgentTaskWithUsage(
       "--model",
       route.model,
       "--extension",
-      "/app/src/tools/search/index.js",
+      `${import.meta.dirname}/tools/search/index.js`,
       "--no-skills",
       "--no-themes",
     ];
@@ -78,13 +79,13 @@ export async function executeAgentTaskWithUsage(
       args.push("--no-tools");
     } else {
       // Memory tool only for non-vision models (vision can't use tools)
-      args.push("--extension", "/app/src/tools/memory/index.js");
+      args.push("--extension", `${import.meta.dirname}/tools/memory/index.js`);
       // Calendar tool: create & list Google Calendar events
-      args.push("--extension", "/app/src/tools/calendar/index.js");
+      args.push("--extension", `${import.meta.dirname}/tools/calendar/index.js`);
       // Xiaomi Home tool
-      args.push("--extension", "/app/src/tools/xiaomi/index.js");
+      args.push("--extension", `${import.meta.dirname}/tools/xiaomi/index.js`);
       // Reminder tool: set / list / delete reminders
-      args.push("--extension", "/app/src/tools/reminder/index.js");
+      args.push("--extension", `${import.meta.dirname}/tools/reminder/index.js`);
     }
 
     if (route.type === "cloud") {
@@ -112,13 +113,15 @@ export async function executeAgentTaskWithUsage(
       env.GOOGLE_API_KEY = route.apiKey;
     }
 
-    // pi binary: absolute path avoids cwd-relative resolution issues
-    const piPath = process.env.PI_PATH || "/app/node_modules/.bin/pi";
+    // pi binary: resolved next to this file (works from /app and from a checkout)
+    const piPath =
+      process.env.PI_PATH || join(import.meta.dirname, "..", "node_modules", ".bin", "pi");
 
     console.log(`[Agent] Spawning: ${piPath} ${args.join(" ")}`);
 
     const child = spawn(piPath, args, {
-      cwd: "/app/workspace",
+      // Relative writes by the agent land here: /app/workspace (volume) or repo root
+      cwd: process.env.WORKSPACE_DIR || process.cwd(),
       env,
       stdio: ["ignore", "pipe", "pipe"],
     });
