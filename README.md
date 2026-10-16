@@ -40,7 +40,7 @@ is only picked when `DEFAULT_MODEL` points at it.
 | `src/router.ts` | SmartRouter: LLM classifier + keyword fallback |
 | `src/memory.ts` | Hybrid memory: LanceDB (semantic) + ring buffer (time-based) |
 | `src/agent.ts` | LLM runner: Pi-Agent (cloud) + direct API (local) |
-| `src/services/reminder.ts` | Per-user reminders with persistent JSON storage |
+| `src/services/reminder-store.js` | Shared reminder persistence (bot tool + cron worker read/write one file) |
 | `src/services/cron-worker.js` | Lightweight reminder checker (separate container) |
 | `src/services/message-handler.ts` | Voice/text/photo extraction |
 | `src/services/chat-queue.ts` | Per-chat preemptive message queue |

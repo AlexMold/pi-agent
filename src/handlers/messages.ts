@@ -28,6 +28,10 @@ import type { ChatTask } from "../services/chat-queue.js";
 import { ensureModelStatus } from "./callbacks.js";
 import { recordUsage, calcCost } from "../services/usage-tracker.js";
 
+// Chats whose in-flight task was just aborted — the next turn gets a note
+// so the model ignores the unanswered question left in the pi session.
+const abortedChats = new Set<number>();
+
 export function registerMessageHandler(bot: Bot): void {
   bot.on(["message:text", "message:voice", "message:photo"], async (ctx: Context) => {
     // 1. Extract query and (in parallel) the reply context, if any
@@ -110,6 +114,7 @@ export function registerMessageHandler(bot: Bot): void {
       (task: ChatTask) => runAgentTask(ctx, task, route),
       () => {
         // Called when a previous task is being aborted
+        abortedChats.add(chatId);
         ctx.reply("⏩ Отменяю предыдущий запрос, обрабатываю новый…").catch(() => {});
       },
     );
@@ -123,13 +128,21 @@ async function runAgentTask(
   task: ChatTask,
   route: RouteResult,
 ): Promise<void> {
+  // The previous task for this chat was killed mid-turn; its unanswered
+  // question is still in the pi session. Tell the model to ignore it.
+  const chatId = ctx.chat?.id ?? 0;
+  if (abortedChats.delete(chatId)) {
+    task.ctxPrefix =
+      "<note>Предыдущий запрос был отменён пользователем - отвечай только на новый.</note>\n\n" +
+      task.ctxPrefix;
+  }
+
   // Keep the typing indicator alive while processing
   const typingInterval = setInterval(() => {
     ctx.replyWithChatAction("typing").catch(() => {});
   }, 4000);
 
   try {
-    const chatId = ctx.chat?.id ?? 0;
     const result = await executeAgentTaskWithUsage(
       task.ctxPrefix + task.query,
       route,

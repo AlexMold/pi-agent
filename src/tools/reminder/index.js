@@ -53,18 +53,19 @@ function extractChatId(ctx) {
           : typeof raw === "string"
             ? raw
             : "";
-        const match = text.match(/<chat_id>(\d+)<\/chat_id>/);
+        // Note: group chats have negative ids (-100123) — keep the minus
+        const match = text.match(/<chat_id>(-?\d+)<\/chat_id>/);
         if (match) return parseInt(match[1], 10);
       }
     }
   } catch {
     // ignore
   }
-  // Fallback: extract chat_id from PI_SESSION_ID (e.g. "chat_123")
+  // Fallback: extract chat_id from PI_SESSION_ID (e.g. "chat_123", "chat_-100123")
   try {
     const sid = process.env.PI_SESSION_ID;
     if (sid) {
-      const m = sid.match(/_(\d+)$/);
+      const m = sid.match(/_(-?\d+)$/);
       if (m) return parseInt(m[1], 10);
     }
   } catch {
