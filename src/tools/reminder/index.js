@@ -5,24 +5,67 @@
  * Reminders are stored persistently and checked every minute by the cron job.
  */
 
-import { reminderManager } from "../../services/reminder.js";
+import { readAll, writeAll } from "../../services/reminder-store.js";
+
+/** Create a reminder in the shared store (same file the bot cron reads). */
+async function addReminder(chatId, text, dueAt) {
+  const reminders = await readAll();
+  const reminder = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    chatId,
+    text,
+    dueAt,
+    createdAt: Date.now(),
+  };
+  reminders.push(reminder);
+  await writeAll(reminders);
+  return reminder;
+}
+
+async function listReminders(chatId) {
+  const reminders = await readAll();
+  return reminders.filter((r) => r.chatId === chatId).sort((a, b) => a.dueAt - b.dueAt);
+}
+
+async function removeReminder(id) {
+  const reminders = await readAll();
+  const idx = reminders.findIndex((r) => r.id === id);
+  if (idx === -1) return false;
+  reminders.splice(idx, 1);
+  await writeAll(reminders);
+  return true;
+}
 
 /**
  * Extract Telegram chat_id from the session.
  * The bot injects `<chat_id>N</chat_id>` into the first message.
+ * Falls back to PI_SESSION_ID env variable.
  */
 function extractChatId(ctx) {
   try {
     const entries = ctx?.sessionManager?.getEntries?.();
-    if (!entries) return null;
-    for (const entry of entries) {
-      const text =
-        entry.message?.content
-          ?.map((c) => (typeof c === "string" ? c : c.text))
-          .filter(Boolean)
-          .join(" ") || "";
-      const match = text.match(/<chat_id>(\d+)<\/chat_id>/);
-      if (match) return parseInt(match[1], 10);
+    if (entries) {
+      for (const entry of entries) {
+        // entry.message.content can be string or array — handle both
+        const raw = entry.message?.content;
+        const text = Array.isArray(raw)
+          ? raw.map((c) => (typeof c === "string" ? c : c.text)).filter(Boolean).join(" ")
+          : typeof raw === "string"
+            ? raw
+            : "";
+        const match = text.match(/<chat_id>(\d+)<\/chat_id>/);
+        if (match) return parseInt(match[1], 10);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  // Fallback: extract chat_id from PI_SESSION_ID (e.g. "chat_123")
+  try {
+    const sid = process.env.PI_SESSION_ID;
+    if (sid) {
+      const m = sid.match(/_(\d+)$/);
+      if (m) return parseInt(m[1], 10);
     }
   } catch {
     // ignore
@@ -125,7 +168,7 @@ Chat ID is inferred from context — do not ask for it.`,
       }
 
       try {
-        const reminder = await reminderManager.add(chatId, text, dueAt);
+        const reminder = await addReminder(chatId, text, dueAt);
         console.log(`[Reminder Tool] REMINDER STORED: id=${reminder.id}, chatId=${chatId}, dueAt=${new Date(dueAt).toISOString()}`);
         const timeStr = new Date(dueAt).toLocaleString("ru-RU", {
           dateStyle: "short",
@@ -173,7 +216,7 @@ Use when user asks "какие у меня напоминания", "что я �
         return { content: [{ type: "text", text: "❌ Не удалось определить пользователя." }] };
       }
 
-      const reminders = reminderManager.list(chatId);
+      const reminders = await listReminders(chatId);
       if (reminders.length === 0) {
         return {
           content: [{ type: "text", text: "📭 Нет активных напоминаний." }],
@@ -222,7 +265,7 @@ Use when user says "удали напоминание", "отмени тайме
     },
     execute: async (_toolCallId, params) => {
       const { reminderId } = params;
-      const removed = await reminderManager.remove(reminderId);
+      const removed = await removeReminder(reminderId);
       if (removed) {
         return {
           content: [{ type: "text", text: "✅ Напоминание удалено." }],

@@ -5,8 +5,8 @@
  * Cron job in bot.ts checks every minute and sends Telegram notifications.
  */
 
-import fs from "fs/promises";
 import type { Bot } from "grammy";
+import { readAll, writeAll } from "./reminder-store.js";
 
 export interface Reminder {
   id: string;
@@ -19,20 +19,21 @@ export interface Reminder {
 
 class ReminderManager {
   private reminders: Reminder[] = [];
-  private dbPath = "/app/workspace/reminders.json";
   private loaded = false;
   private bot?: Bot;
 
   async init(bot: Bot): Promise<void> {
     this.bot = bot;
-    try {
-      const data = await fs.readFile(this.dbPath, "utf-8");
-      this.reminders = JSON.parse(data);
-      console.log(`[Reminder] Loaded ${this.reminders.length} reminders`);
-    } catch {
-      this.reminders = [];
-      await this.save();
+    this.reminders = await readAll();
+    if (this.reminders.length === 0) {
+      try {
+        await writeAll(this.reminders);
+      } catch (err) {
+        console.error("[Reminder] Init write failed:", err);
+      }
       console.log("[Reminder] Initialized empty storage");
+    } else {
+      console.log(`[Reminder] Loaded ${this.reminders.length} reminders`);
     }
     this.loaded = true;
   }
@@ -75,23 +76,18 @@ class ReminderManager {
 
   /** Reload reminders from disk (main process may be out of sync with Pi child process). */
   private async reload(): Promise<void> {
-    try {
-      const data = await fs.readFile(this.dbPath, "utf-8");
-      this.reminders = JSON.parse(data);
-      if (this.reminders.length === 0) {
-        console.log(`[Reminder] Reloaded 0 reminders from disk`);
-      } else {
-        const now = Date.now();
-        for (const r of this.reminders) {
-          const msLeft = r.dueAt - now;
-          const secLeft = Math.round(msLeft / 1000);
-          console.log(
-            `[Reminder DB] id=${r.id} chatId=${r.chatId} text="${r.text.slice(0, 50)}" dueAt=${new Date(r.dueAt).toISOString()} secLeft=${secLeft}s now=${new Date(now).toISOString()}`,
-          );
-        }
+    this.reminders = await readAll();
+    if (this.reminders.length === 0) {
+      console.log(`[Reminder] Reloaded 0 reminders from disk`);
+    } else {
+      const now = Date.now();
+      for (const r of this.reminders) {
+        const msLeft = r.dueAt - now;
+        const secLeft = Math.round(msLeft / 1000);
+        console.log(
+          `[Reminder DB] id=${r.id} chatId=${r.chatId} text="${r.text.slice(0, 50)}" dueAt=${new Date(r.dueAt).toISOString()} secLeft=${secLeft}s now=${new Date(now).toISOString()}`,
+        );
       }
-    } catch {
-      // File missing or corrupt — keep in-memory state
     }
   }
 
@@ -138,7 +134,7 @@ class ReminderManager {
 
   private async save(): Promise<void> {
     try {
-      await fs.writeFile(this.dbPath, JSON.stringify(this.reminders, null, 2));
+      await writeAll(this.reminders);
     } catch (err) {
       console.error("[Reminder] Save failed:", err);
     }

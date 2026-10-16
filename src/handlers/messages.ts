@@ -91,7 +91,8 @@ export function registerMessageHandler(bot: Bot): void {
     // 6. Recall conversation history
     let ctxPrefix = `<chat_id>${chatId}</chat_id>\n\n${replyContext}`;
     try {
-      const past = await memory.recall(query, chatId, 30 * 60 * 1000, 4);
+      // The pi session carries recent turns; inject only semantic matches
+      const past = await memory.recall(query, chatId, 0, 4);
       if (past.length > 0) {
         ctxPrefix +=
           `<conversation_history>\n` +
@@ -128,11 +129,13 @@ async function runAgentTask(
   }, 4000);
 
   try {
+    const chatId = ctx.chat?.id ?? 0;
     const result = await executeAgentTaskWithUsage(
       task.ctxPrefix + task.query,
       route,
       task.imagePath,
       task.signal,          // ← pass the abort signal
+      chatId ? String(chatId) : undefined,  // persistent per-chat session
     );
     const raw = result.text;
     const usage = result.usage;
@@ -141,7 +144,6 @@ async function runAgentTask(
     if (task.signal.aborted) return;
 
     // Store assistant response (cleaned, for memory/history)
-    const chatId = ctx.chat?.id ?? 0;
     try { await memory.remember(cleanResponse(raw), { role: "assistant", chatId }); } catch (err: any) { console.error("[Memory] remember failed:", err.message); }
 
     // Record token usage + cost (fire-and-forget)
@@ -244,7 +246,13 @@ async function handleAgentError(
         baseUrl: "https://api.deepseek.com/v1",
         apiKey: config.deepseekApiKey,
       };
-      const fbResult = await executeAgentTaskWithUsage(ctxPrefix + query, cr, undefined, signal);
+      const fbResult = await executeAgentTaskWithUsage(
+        ctxPrefix + query,
+        cr,
+        undefined,
+        signal,
+        ctx.chat?.id != null ? String(ctx.chat.id) : undefined,
+      );
       if (signal?.aborted) return;
       recordUsage({
         chatId: ctx.chat?.id ?? 0,

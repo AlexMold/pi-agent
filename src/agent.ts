@@ -9,6 +9,7 @@
  */
 
 import { spawn } from "child_process";
+import { mkdirSync } from "fs";
 import { join } from "path";
 import type { RouteResult } from "./router.js";
 
@@ -29,14 +30,17 @@ export interface AgentResult {
  * @param signal  Optional AbortSignal — when aborted the child process is
  *                killed and an AbortError is thrown so callers can detect
  *                preemption cleanly.
+ * @param sessionId  Optional Telegram chat id — spawns pi with a persistent
+ *                per-chat session (history + auto-compaction).
  */
 export async function executeAgentTask(
   task: string,
   route: RouteResult,
   imagePath?: string,
   signal?: AbortSignal,
+  sessionId?: string,
 ): Promise<string> {
-  const result = await executeAgentTaskWithUsage(task, route, imagePath, signal);
+  const result = await executeAgentTaskWithUsage(task, route, imagePath, signal, sessionId);
   return result.text;
 }
 
@@ -50,6 +54,7 @@ export async function executeAgentTaskWithUsage(
   route: RouteResult,
   imagePath?: string,
   signal?: AbortSignal,
+  sessionId?: string,
 ): Promise<AgentResult> {
   // If already aborted before we even start, bail out immediately
   if (signal?.aborted) {
@@ -71,6 +76,7 @@ export async function executeAgentTaskWithUsage(
       `${import.meta.dirname}/tools/search/index.js`,
       "--no-skills",
       "--no-themes",
+      "--no-mcp",
     ];
 
     const isVision = route.model.includes("minicpm");
@@ -90,6 +96,14 @@ export async function executeAgentTaskWithUsage(
 
     if (route.type === "cloud") {
       args.unshift("--thinking", "medium");
+    }
+
+    // Persistent per-chat pi session: history + auto-compaction live in pi
+    let sessionsDir: string | undefined;
+    if (sessionId) {
+      sessionsDir = join(process.env.WORKSPACE_DIR || process.cwd(), "sessions");
+      mkdirSync(sessionsDir, { recursive: true });
+      args.push("--session-id", `chat_${sessionId}`, "--session-dir", sessionsDir);
     }
 
     // Prompt and --print flag must come last
@@ -113,11 +127,18 @@ export async function executeAgentTaskWithUsage(
       env.GOOGLE_API_KEY = route.apiKey;
     }
 
+    if (sessionId) {
+      env.PI_SESSION_ID = `chat_${sessionId}`;
+    }
+
     // pi binary: resolved next to this file (works from /app and from a checkout)
     const piPath =
       process.env.PI_PATH || join(import.meta.dirname, "..", "node_modules", ".bin", "pi");
 
-    console.log(`[Agent] Spawning: ${piPath} ${args.join(" ")}`);
+    console.log(
+      `[Agent] Spawning: ${piPath} ${args.join(" ")}` +
+      (sessionId ? ` (session=chat_${sessionId})` : ""),
+    );
 
     const child = spawn(piPath, args, {
       // Relative writes by the agent land here: /app/workspace (volume) or repo root

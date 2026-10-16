@@ -30,9 +30,6 @@ RUN --mount=type=cache,target=/root/.npm \
 # ── Source code (changes most often — placed last) ──────────────────
 COPY src/ ./src/
 
-# ── Static config (rarely changes) ──────────────────────────────────
-COPY models.json ./
-
 # ── Runtime directories ─────────────────────────────────────────────
 RUN mkdir -p /app/workspace /app/memory_db
 

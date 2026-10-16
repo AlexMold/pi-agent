@@ -1,7 +1,9 @@
 /**
  * LongTermMemory — Hybrid: LanceDB (semantic) + in-memory ring buffer (recent).
  *
- * - Recent messages (last 20 per chat): always injected as conversation history
+ * - Ring buffer (last 100 per chat): in-RAM store and fallback; the pi session
+ *   now carries recent turns into the prompt, so recall() is called with a
+ *   zero time window and injects semantic matches only
  * - Semantic search (top 5): LanceDB for long-term recall
  */
 
@@ -185,6 +187,9 @@ export class LongTermMemory {
    *  - Recent messages within time window (always, chronological)
    *  - K semantic matches (LanceDB)
    * Deduplicated, recent first.
+   *
+   * Messages.ts passes timeRangeMs=0: the persistent pi session carries
+   * recent turns, so only semantic matches get injected.
    */
   async recall(
     query: string,

@@ -471,6 +471,8 @@ describe("Bot E2E — Message Handler", () => {
     expect(prompt).toContain("Привет, мир!");
     expect(prompt).toContain('author="user"');
     expect(prompt).toContain("translate it");
+    // 5th arg: persistent per-chat session id from the Telegram chat
+    expect(mockExecuteAgentTask.mock.calls[0][4]).toBe(String(DEFAULT_CHAT_ID));
   });
 
   // ── 9. Reply context: bot-message reply is tagged "assistant" ─

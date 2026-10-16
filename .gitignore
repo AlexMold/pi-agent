@@ -23,3 +23,10 @@ models/
 .github/pipeline/
 .github/agents/
 .github/skills/
+
+# Local pi sessions (bot spawns per chat)
+sessions/
+
+
+# pi model catalog cache
+.pi/agent/models-store.json

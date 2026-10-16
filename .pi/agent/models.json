@@ -1,18 +1,62 @@
 {
+  "$schema": "https://pi.dev/schemas/models.schema.json",
   "providers": {
-    "llama": {
-      "baseUrl": "http://llama-service:8081/v1",
-      "apiKey": "local",
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com",
       "api": "openai-completions",
+      "apiKey": "${DEEPSEEK_API_KEY}",
       "models": [
         {
-          "id": "llama3.2-1b",
-          "name": "Llama 3.2-1B (Routing)",
-          "contextWindow": 2048,
-          "reasoning": false,
+          "id": "deepseek-v4-flash",
+          "name": "DeepSeek Flash",
+          "contextWindow": 131072,
+          "maxTokens": 32768,
           "input": ["text"],
-          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-          "maxTokens": 2048
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": null,
+            "medium": null,
+            "high": "high",
+            "xhigh": "max"
+          },
+          "compat": {
+            "requiresReasoningContentOnAssistantMessages": true,
+            "thinkingFormat": "deepseek",
+            "reasoningEffortMap": {
+              "minimal": "high",
+              "low": "high",
+              "medium": "high",
+              "high": "high",
+              "xhigh": "max"
+            }
+          }
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek Pro",
+          "contextWindow": 131072,
+          "maxTokens": 32768,
+          "input": ["text"],
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": null,
+            "medium": null,
+            "high": "high",
+            "xhigh": "max"
+          },
+          "compat": {
+            "requiresReasoningContentOnAssistantMessages": true,
+            "thinkingFormat": "deepseek",
+            "reasoningEffortMap": {
+              "minimal": "high",
+              "low": "high",
+              "medium": "high",
+              "high": "high",
+              "xhigh": "max"
+            }
+          }
         }
       ]
     }

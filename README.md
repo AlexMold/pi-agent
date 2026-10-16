@@ -132,7 +132,8 @@ npm test           # 58 tests (55 pass, 3 skipped)
 
 ### Long-Term Memory
 
-- **Ring buffer**: last 30 minutes of messages per chat
+- **Pi session per chat**: full conversation history + auto-compaction (~115K tokens), survives bot restarts
+- **Ring buffer**: in-RAM recent store and fallback (not injected since the session carries recent turns)
 - **LanceDB**: semantic search across entire conversation history
 - **Reply context**: when user replies to a message, the original text is injected into context
 
