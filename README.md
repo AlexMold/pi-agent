@@ -6,25 +6,30 @@ Telegram AI assistant with smart routing, vector memory, voice input, and integr
 
 ```
 User (Telegram) → grammY Bot → SmartRouter → LLM → Response
-                                  │              │
-                             ┌────┴────┐    ┌────┴─────────────┐
-                             │ Local   │    │ Cloud            │
-                             │ llama   │    │ DeepSeek / Gemini│
-                             │ (cpp)   │    │                  │
-                             └─────────┘    └──────────────────┘
-                                  │
-                    ┌─────────────┼──────────────┐
-                    │             │              │
-               LongTermMemory  Reminders    Calendar
-               (LanceDB)       (JSON+R2)   (Google API)
+                                     │        │
+                    ┌────────────────┴───┐  ┌─┴──────────────────────┐
+                    │ Ollama (host)      │  │ llama.cpp (local, opt.)│
+                    │ qwen2.5:0.5b       │  ├────────────────────────┤
+                    │ classifier; LanceDB│  │ DeepSeek V4 Pro / Flash│
+                    │ embeddings         │  │ Gemini 2.5 Flash (vis.)│
+                    └────────────────────┘  └────────────────────────┘
+                                     │
+                       ┌─────────────┼─────────────┐
+                       │             │             │
+                LongTermMemory   Reminders     Calendar
+                   (LanceDB)     (JSON+R2)   (Google API)
 ```
+
+The router asks a 0.5B model on the host which model to use, then Pi-Agent runs
+the task on the chosen one. Cloud is the default target; the local llama model
+is only picked when `DEFAULT_MODEL` points at it.
 
 ### Docker containers
 
 | Container | Image | Purpose |
 |-----------|-------|---------|
 | `ai-assistant-pro` | `node:24-slim` (~400 MB) | Bot, Pi-Agent, LanceDB, tools |
-| `llama-service` | `llama.cpp:server` (~1 GB) | Local routing model |
+| `llama-service` | `llama.cpp:server` (~1 GB) | Optional local model (idle unless `DEFAULT_MODEL=llama/llama3.2-1b`) |
 | `ai-cron-worker` | `node:24-alpine` (~60 MB) | Reminders every 60s |
 
 ## Components
@@ -58,7 +63,8 @@ User (Telegram) → grammY Bot → SmartRouter → LLM → Response
 |------|-------|----------|
 | `src/tests/router.test.ts` | 11 | SmartRouter keyword routing |
 | `src/tests/chat-queue.test.ts` | 5 | Per-chat preemptive queue |
-| `src/tests/bot-e2e.test.ts` | 20 | Full bot pipeline (mock-based) |
+| `src/tests/bot-e2e.test.ts` | 22 | Full bot pipeline (mock-based) |
+| `src/tests/reply-context.test.ts` | 20 | Reply-chain and image extraction |
 
 ## Quick Start
 
@@ -86,14 +92,28 @@ docker compose up --build -d
 docker compose logs -f
 ```
 
-First start downloads Llama-3.2-1B GGUF (~785 MB) automatically.
+First start also downloads the Llama-3.2-1B GGUF (~785 MB) for `llama-service`.
+Running without that container: set `SKIP_LLAMA_WAIT=1` (skips a 120s health
+wait) and point `DEFAULT_MODEL` at a cloud model.
 
-### 4. Verify
+### 4. Host services
+
+The container reaches both over `host.docker.internal` (`extra_hosts` in `docker-compose.yml`):
+
+| Service | Port | Used for | Install |
+|---------|------|----------|---------|
+| Ollama | 11434 | Routing classifier + LanceDB embeddings | `ollama pull qwen2.5:0.5b`, `ollama pull nomic-embed-text` |
+| Whisper.cpp | 8080 | Voice messages (STT) | `npm run whisper:setup && npm run whisper:start` or `docker/whisper.service` |
+
+With Ollama down the router still works: it falls back to keyword matching and
+memory search degrades to zero vectors.
+
+### 5. Verify
 
 ```bash
 npm run lint       # ESLint (JS files only)
 npx tsc --noEmit   # TypeScript typecheck
-npm test           # 36 tests
+npm test           # 58 tests (55 pass, 3 skipped)
 ```
 
 ## Features
