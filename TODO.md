@@ -41,8 +41,8 @@
 
 ### 6. Verify + commit
 
-- [ ] `npx tsc --noEmit`, `npm run lint`, `npm test` - зелёные
-- [ ] Коммит (conventional) + пуш
+- [x] `npx tsc --noEmit`, `npm run lint`, `npm test` - зелёные (57 passed / 3 skipped)
+- [x] Коммит (conventional) + пуш: `b4f3f1d feat: upgrade pi to 1.3.0 and give each Telegram chat a persistent session`
 
 ## Notes
 
