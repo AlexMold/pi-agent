@@ -105,6 +105,19 @@ export function registerMessageHandler(bot: Bot): void {
       }
     } catch (_) {}
 
+    // 6b. Distilled facts: semantic top-4, behavioral ones marked as rules
+    try {
+      const facts = await memory.searchFacts(query, chatId, 4);
+      if (facts.length > 0) {
+        ctxPrefix +=
+          `<known_facts>\n` +
+          facts
+            .map((f) => `- ${f.kind === "behavior" ? "[правило] " : ""}${f.text}`)
+            .join("\n") +
+          `\n</known_facts>\n\n`;
+      }
+    } catch (_) {}
+
     ctx.replyWithChatAction("typing").catch(() => {});
 
     // 7. Enqueue — may abort a running LLM task for this chat

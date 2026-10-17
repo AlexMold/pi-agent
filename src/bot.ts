@@ -18,6 +18,7 @@ import "dotenv/config";
 import { config } from "./services/config.js";
 import { registerCommands } from "./handlers/commands.js";
 import { registerCallbacks } from "./handlers/callbacks.js";
+import { runDistillation } from "./services/distiller.js";
 import { registerMessageHandler } from "./handlers/messages.js";
 import { memory } from "./memory.js";
 import { Cron } from "croner";
@@ -56,6 +57,18 @@ const bot = new Bot(config.telegramToken);
 
 await memory.init().catch((err) => console.error("[Memory] Init failed:", err));
 console.log("[Model] LanceDB ready — overrides load lazily on first message");
+
+// ── Weekly distillation (facts + session compaction, Sunday night 04:00) ──
+let lastDistillDay = "";
+setInterval(() => {
+  const now = new Date();
+  if (now.getDay() === 0 && now.getHours() === 4 && lastDistillDay !== now.toDateString()) {
+    lastDistillDay = now.toDateString();
+    runDistillation().catch((err) =>
+      console.error("[Distill] weekly run failed:", err.message),
+    );
+  }
+}, 30 * 60 * 1000);
 
 // ── Auth middleware ────────────────────────────────────────────────
 

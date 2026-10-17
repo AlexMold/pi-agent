@@ -2,53 +2,53 @@
 
 ## Goal
 
-Апгрейд бота на @earendil-works/pi-coding-agent 1.3.0 (нативный автокомпакт, deprecated-линия закрывается), затем постоянная pi-сессия на Telegram-чат: агент реально ведёт дискуссию, переживает рестарты бота, длинные диалоги компактятся встроенным механизмом pi. Дистилляция персональных фактов - отдельный второй этап.
+Этап 2 - дистилляция памяти: ночной прогон читает сессии бота, выжимает устойчивые факты о пользователе и поведенческие предпочтения в таблицу `facts`, релевантные факты инжектируются в промпт каждого сообщения. Ручной запуск - `/distill` в Telegram. Противоречия решаются свежестью (новая дата побеждает).
 
 ## Tasks
 
-### 1. Апгрейд pi 0.70.2 → 1.3.0
+### 1. Хранилище фактов
 
-- [x] `package.json`: `"@mariozechner/pi-coding-agent": "^0.70.2"` → `"@earendil-works/pi-coding-agent": "^1.3.0"`; `npm install` (обновить lockfile)
-- [x] Проверить в 1.3.0 флаги: `--print`, `--model`, `--thinking medium`, `--no-skills`, `--no-themes`, `--no-tools`, env `PI_SKIP_VERSION_CHECK`/`PI_OFFLINE`/`PI_TELEMETRY` - все есть; добавлен `--no-mcp` (в контейнере mcp.json с chrome-devtools не нужен)
-- [x] `models.json`: формат 1.3.0 - providers; но встроенный каталог уже резолвит deepseek-v4-flash/pro и google/gemini-2.5-flash (env-ключи) - оба старых файла удалены (root + .pi/agent) и строка из Dockerfile
-- [x] Порт 5 тулов: НЕ ПОНАДОБИЛСЯ - ToolDefinition API 0.70.2 и 1.3.0 идентичны (проверено по dist; internet_search отработал end-to-end на 1.3.0)
-- [x] `src/tools/reminder/index.js`: импорт `../../services/reminder.js` (.ts из .js - латентный баг) заменён на `reminder-store.js`; `reminder.ts` переведён на store; extractChatId починен под system-entry со string content + fallback `PI_SESSION_ID` (правка параллельного агента из соседней вкладки - забрал в свой диф)
-- [x] Загрузка тулов: `--extension` флаг В 1.3.0 ЕСТЬ - механизм не меняется, settings не нужен
-- [x] Интеграционная проверка: полный цикл на 1.3.0 - 5 тулов грузятся, auth.json `[]` терпится, trust не блокирует print, set_reminder реально пишет файл (extracted chatId: 123, reminders.json создан)
+- [x] `src/memory.ts`: методы `addFact(text, kind, chatId)`, `searchFacts(query, chatId, k)`, `listRecentFacts(chatId, limit)` в LongTermMemory (таблица `facts`: text, kind "fact"|"behavior", chatId, vector, createdAt, updatedAt; эмбеддинг - тот же Ollama)
+- [x] `dbPath` в `memory.ts` выровнять с тулом: `MEMORY_DB` env → `/app/memory_db` (existsSync) → относительный путь
 
-### 2. Постоянная pi-сессия на чат
+### 2. Дистиллятор + автокомпакт сессий
 
-- [x] `src/agent.ts`: опциональный параметр `sessionId` в `executeAgentTaskWithUsage`/`executeAgentTask` (без него - как сейчас)
-- [x] В args: `--session-id chat_<id>` + `--session-dir ${sessionsDir}`, где `sessionsDir = join(WORKSPACE_DIR || process.cwd(), "sessions")`; `mkdirSync(recursive)` перед спавном; env `PI_SESSION_ID=chat_<id>`
-- [x] `src/handlers/messages.ts`: пробросить `chatId` в оба вызова (основной ~131, фолбэк ~247); других вызывателей нет (grep)
-- [x] Лог `[Agent] session=chat_<id>`
+- [ ] Новый `src/services/distiller.ts`: читает `workspace/sessions/chat_*.jsonl` с mtime > чекпоинта (`workspace/distill-state.json`), берёт сообщения user/assistant
+- [ ] Извлечение одним вызовом DeepSeek flash (fetch, как classify в router): на вход - свежие сообщения + список существующих фактов (top-30 по свежести), на выходе JSON `{facts: [{text, kind}], digest}`; только устойчивые утверждения, поведение помечается `kind:"behavior"`; digest - короткое саммари диалога
+- [ ] Дедуп: для каждого нового факта semantic-поиск по существующим; почти идентичный - скип, противоречащий/дополняющий - запись с новым `updatedAt` (свежесть побеждает при инжекции)
+- [ ] **Автокомпакт после дистилляции:** после успешного прогона по чату - digest пишется в `workspace/sessions/chat_<id>.digest.md`, сессия архивируется в `workspace/sessions/archive/`; следующее сообщение стартует свежую сессию, digest инжектится в первый промпт (consume-once: файл дайджеста удаляется после инжекции). Факты уже в таблице - ничего не теряется, контекст остаётся маленьким
+- [ ] Защита от гонки: чат ротируется только если сессия не менялась 10+ минут (mtime-проверка)
+- [ ] Лимиты: не больше N сообщений за прогон, чекпоинт обновляется после успеха
+- [ ] Логи `[Distill] chat=..., facts +X/-Y, rotated=yes/no`
 
-### 3. Дедупликация инжектируемого контекста
+### 3. Инжекция в промпт
 
-- [x] `src/handlers/messages.ts`: `memory.recall(query, chatId, 0, 4)` - недавние ходы несёт сессия, остаётся semantic top-4 + `<replied_to>`
-- [x] Комментарий в `src/memory.ts`: кольцо остаётся как fallback и хранилище, в промпт больше не подкачивается
+- [ ] `src/handlers/messages.ts`: после semantic recall - `memory.searchFacts(query, chatId, 4)` → блок `<known_facts>` в `ctxPrefix` (поведенческие с пометкой "[правило]")
+- [ ] Consume-once дайджест: если `chat_<id>.digest.md` существует - инжектить блок `<conversation_digest>` в ctxPrefix и удалить файл (дальше digest живёт в сессии)
+- [ ] bot-e2e: мок `memory.searchFacts`, ассерт что промпт содержит `<known_facts>` при наличии фактов
 
-### 4. Настройка автокомпакта
+### 4. Запуск: воскресенье ночью + /distill
 
-- [x] `.pi/agent/models.json` (монтируется в `/root/.pi/agent/models.json`): override deepseek-v4-flash/pro с `contextWindow 131072` (встроенный каталог даёт 1M - компакт не срабатывал бы) → авто-компакт вступает на ~115K токенов
-- [x] Ручная проверка: форсированная сессия с окном 24K - 2 CompactionEntry с корректным саммари, секрет из первого хода пережил компакт и 35K токенов filler'а; продолжение сессии проверено («Рекс» помнится между запусками)
+- [x] `src/bot.ts`: планировщик - каждые 30 мин проверка «воскресенье, 04:00, на этой неделе ещё не запускали» → `distiller.run()`; состояние последнего прогона в чекпоинте
+- [x] `src/handlers/commands.ts`: `/distill` (только владелец) - отвечает «запустил», по завершении шлёт статистику
+- [x] Ошибки прогона не валят бот: try/catch + лог
 
 ### 5. Тесты
 
-- [x] Новый `src/tests/agent-session.test.ts` (mock spawn): `--session-id chat_42` есть при sessionId, нет - при отсутствии; `--session-dir` корректен; `PI_SESSION_ID` в env
-- [x] bot-e2e: 5-й аргумент мока `executeAgentTask*` = String(chatId)
-- [x] Существующие тесты не сломаны: 57 passed / 3 skipped
+- [ ] `src/tests/distiller.test.ts` (mock fetch + mock memory): парсинг ответа LLM, дедуп (идентичный - скип, новый - добавлен), чекпоинт обновляется, LLM упал - факты не тронуты
+- [ ] Существующие тесты зелёные
 
 ### 6. Verify + commit
 
-- [x] `npx tsc --noEmit`, `npm run lint`, `npm test` - зелёные (57 passed / 3 skipped)
-- [x] Коммит (conventional) + пуш: `b4f3f1d feat: upgrade pi to 1.3.0 and give each Telegram chat a persistent session`
+- [ ] `npx tsc --noEmit`, `npm run lint`, `npm test`
+- [ ] Ручная проверка: синтетическая сессия с фактом («меня зовут X») → /distill → факты в таблице → следующее сообщение содержит `<known_facts>` с этим фактом
+- [ ] Коммит (conventional) + пуш
 
 ## Notes
 
-- Сессии: `workspace/sessions/` (смонтированный volume, переживает рестарт контейнера); `workspace/` в .gitignore
-- Аборт «⏩ новое сообщение» (SIGKILL): pi переживает оборванный хвост сессии - проверено тестом с коррапт-файлом (0.70.2) и нужно повторить на 1.3.0 в рамках задачи 4
-- Старая линия pi deprecated; после апгрейда кастомный compactor не нужен (нативный компакт)
-- `usage-tracker` пишет неверные токены (avg input = 8) - отдельный баг, не входит
-- Дистилляция (этап 2): ночной прогон по сессиям → таблица `facts` + дообучение базы знаний
-- `--extension` флага в 1.3.0 нет (проверено в `pi --help`) - поэтому задача 1 обязательна перед задачей 2
+- Этап 1 готов и запушен (b4f3f1d + cbb5b65). Деплой на инстанс - отдельно, не в этом этапе
+- Дистиллятор живёт в процессе бота (нужны LanceDB + Ollama), планировщик как у R2-бэкапа
+- Автокомпакт - это ротация с дайджестом, НЕ pi.compact(): программный компакт в 1.3.0 только через RPC/расширения - не тащим
+- Факты пишутся только из сессий бота; харнес-память (MEMORY.md) не трогаем - разные системы
+- usage-tracker (мусорные токены) и whisper.service (turbo vs small) - вне этого этапа
+- Модель извлечения: deepseek-v4-flash через прямой fetch; стоимость ~копейки за ночной прогон

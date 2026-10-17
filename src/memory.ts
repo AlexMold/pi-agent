@@ -9,6 +9,8 @@
 
 import * as lancedb from "@lancedb/lancedb";
 import type { Connection, Table } from "@lancedb/lancedb";
+import { existsSync } from "fs";
+import { randomUUID } from "crypto";
 
 const OLLAMA_BASE = process.env.OLLAMA_HOST || "host.docker.internal:11434";
 
@@ -48,12 +50,16 @@ export class LongTermMemory {
   private table!: Table;
   private modelTable!: Table;
   private usageTable!: Table;
+  private factsTable!: Table;
   private initialized = false;
 
   async init(): Promise<void> {
     if (this.initialized) return;
 
-    const dbPath = "memory_db/ai_context";
+    // MEMORY_DB overrides for tests; /app/memory_db exists only in the container
+    const dbPath =
+      process.env.MEMORY_DB ||
+      (existsSync("/app/memory_db") ? "/app/memory_db/ai_context" : "memory_db/ai_context");
     console.log(`[Memory] Connecting to LanceDB at ${dbPath}`);
     this.db = await lancedb.connect(dbPath);
     const tables = await this.db.tableNames();
@@ -98,6 +104,23 @@ export class LongTermMemory {
       this.usageTable = await this.db.openTable("usage");
     }
 
+    // Distilled durable facts (user facts + behavior rules)
+    if (!tables.includes("facts")) {
+      this.factsTable = await this.db.createTable("facts", [
+        {
+          vector: new Array(768).fill(0),
+          id: "__init__",
+          text: "init",
+          kind: "fact",
+          chatId: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      ]);
+    } else {
+      this.factsTable = await this.db.openTable("facts");
+    }
+
     this.initialized = true;
     console.log("[Memory] LanceDB + ring buffer initialized");
   }
@@ -137,15 +160,13 @@ export class LongTermMemory {
   > {
     if (!this.initialized) await this.init();
     try {
-      const cond =
-        sinceMs !== undefined
-          ? `chatId = ${chatId} AND timestamp >= ${sinceMs}`
-          : `chatId = ${chatId}`;
-      const rows = await this.usageTable
-        .query()
-        .where(cond)
-        .toArray();
-      return rows as any[];
+      // lancedb 0.17 where() silently mismatches camelCase columns - filter in JS
+      const rows = (await this.usageTable.query().toArray()) as any[];
+      return rows.filter(
+        (r) =>
+          r.chatId === chatId &&
+          (sinceMs === undefined || r.timestamp >= sinceMs),
+      );
     } catch (err: any) {
       console.error("[Memory] getUsage failed:", err.message);
       return [];
@@ -207,13 +228,14 @@ export class LongTermMemory {
     if (this.initialized) {
       try {
         const vector = await this.embed(query);
-        const semantic = await this.table
-          .search(vector)
-          .where(`"chatId" = ${chatId}`)
-          .limit(semanticK)
-          .toArray();
+        // lancedb 0.17 where() silently mismatches camelCase columns — fetch a
+        // window and filter by chatId in JS (fine for a personal bot's volume)
+        const semantic = (await this.table.search(vector).limit(100).toArray()) as any[];
 
-        for (const r of semantic as any[]) {
+        const matches = semantic
+          .filter((r) => r.chatId === chatId)
+          .slice(0, semanticK);
+        for (const r of matches) {
           // Deduplicate: skip if already in recent
           const isDup = recent.some((m) => m.text === r.text && m.role === r.role);
           if (!isDup) {
@@ -246,10 +268,8 @@ export class LongTermMemory {
     try {
       const rows = await this.modelTable
         .query()
-        .where(`"chatId" = ${chatId}`)
-        .limit(1)
         .toArray();
-      const row = rows[0] as any;
+      const row = (rows as any[]).find((r) => r.chatId === chatId);
       return row?.modelId || null;
     } catch {
       return null;
@@ -262,6 +282,71 @@ export class LongTermMemory {
       await this.modelTable.delete(`"chatId" = ${chatId}`);
     } catch (err) {
       console.error("[Memory] clearModelOverride failed:", err);
+    }
+  }
+
+  // ── Distilled facts (long-term user knowledge) ────────────────
+
+  /** Store a distilled fact. Fresh rows win at recall time (sorted by updatedAt). */
+  async addFact(
+    text: string,
+    kind: "fact" | "behavior",
+    chatId: number,
+  ): Promise<void> {
+    if (!this.initialized) await this.init();
+    try {
+      const vector = await this.embed(text);
+      const now = Date.now();
+      await this.factsTable.add([
+        {
+          id: randomUUID(),
+          text,
+          kind,
+          chatId,
+          createdAt: now,
+          updatedAt: now,
+          vector,
+        },
+      ]);
+    } catch (err: any) {
+      console.error("[Memory] addFact failed:", err.message);
+    }
+  }
+
+  /** Semantic search over distilled facts, newest first. */
+  async searchFacts(
+    query: string,
+    chatId: number,
+    k = 4,
+  ): Promise<Array<{ text: string; kind: string; updatedAt: number }>> {
+    if (!this.initialized) await this.init();
+    try {
+      const vector = await this.embed(query);
+      // lancedb 0.17 where() silently mismatches camelCase columns - filter in JS
+      const rows = (await this.factsTable.search(vector).limit(200).toArray()) as any[];
+      return rows
+        .filter((r) => r.chatId === chatId && r.id !== "__init__")
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, k)
+        .map((r) => ({ text: r.text, kind: r.kind, updatedAt: r.updatedAt }));
+    } catch (err: any) {
+      console.error("[Memory] searchFacts failed:", err.message);
+      return [];
+    }
+  }
+
+  /** Recent distilled fact texts for a chat (distiller dedup prompt). */
+  async listRecentFacts(chatId: number, limit = 30): Promise<string[]> {
+    if (!this.initialized) await this.init();
+    try {
+      const rows = (await this.factsTable.query().toArray()) as any[];
+      return rows
+        .filter((r) => r.chatId === chatId && r.id !== "__init__")
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, limit)
+        .map((r) => r.text);
+    } catch {
+      return [];
     }
   }
 

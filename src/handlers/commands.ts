@@ -6,6 +6,7 @@ import type { Bot, Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { config } from "../services/config.js";
 import { getStats } from "../services/usage-tracker.js";
+import { runDistillation } from "../services/distiller.js";
 
 // ── Model keyboard ─────────────────────────────────────────────────
 
@@ -98,6 +99,24 @@ export function registerCommands(bot: Bot): void {
       `• Workspace: <code>/app/workspace</code>`,
       { parse_mode: "HTML" },
     );
+  });
+
+  // /distill — run memory distillation + session compaction now
+  bot.command("distill", async (ctx: Context) => {
+    await ctx.reply("⏳ Дистилляция запущена...");
+    try {
+      const stats = await runDistillation();
+      await ctx.reply(
+        `<b>🧠 Дистилляция готова</b>\n` +
+        `Чатов: <code>${stats.chats}</code> (активных пропущено: ${stats.skippedActive})\n` +
+        `Факты: +<code>${stats.factsAdded}</code> (дублей скипнуто: ${stats.factsSkipped})\n` +
+        `Сессий сжато: <code>${stats.rotated}</code>` +
+        (stats.errors ? `\n⚠️ Ошибок: ${stats.errors}` : ""),
+        { parse_mode: "HTML" },
+      );
+    } catch (err: any) {
+      await ctx.reply(`❌ Дистилляция упала: ${err.message}`);
+    }
   });
 
   // /stats [range] — range ∈ {24h, 7d, 30d, all} (default: 7d)

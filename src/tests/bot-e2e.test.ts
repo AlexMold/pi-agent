@@ -34,6 +34,7 @@ const mockModelOverride = vi.hoisted(() => new Map<number, string>());
 const mockExecuteAgentTask = vi.hoisted(() => vi.fn());
 const mockRemember = vi.hoisted(() => vi.fn());
 const mockRecall = vi.hoisted(() => vi.fn());
+const mockSearchFacts = vi.hoisted(() => vi.fn());
 const mockRoute = vi.hoisted(() => vi.fn());
 const mockRouteSync = vi.hoisted(() => vi.fn());
 const mockExtractMessage = vi.hoisted(() => vi.fn());
@@ -87,6 +88,7 @@ vi.mock("../memory.js", () => ({
     init: vi.fn().mockResolvedValue(undefined),
     remember: mockRemember,
     recall: mockRecall,
+    searchFacts: mockSearchFacts,
     getModelOverride: mockGetModelOverride,
     setModelOverride: mockSetModelOverride,
     clearModelOverride: mockClearModelOverride,
@@ -237,6 +239,7 @@ describe("Bot E2E — Message Handler", () => {
     }));
     mockExtractReplyContext.mockResolvedValue(null); // default: no reply context
     mockRecall.mockResolvedValue([]);
+    mockSearchFacts.mockResolvedValue([]);
     mockRemember.mockResolvedValue(undefined);
   });
 
@@ -295,6 +298,29 @@ describe("Bot E2E — Message Handler", () => {
     expect(agentCallArgs).toContain("[user]: привет");
     expect(agentCallArgs).toContain("[assistant]: здравствуй");
     expect(agentCallArgs).toContain("как дела?");
+  });
+
+  // ── 2b. Distilled facts injection ─────────────────────────
+  it("injects known facts with the behavior marker", async () => {
+    mockSearchFacts.mockResolvedValue([
+      { text: "Пользователя зовут Алекс", kind: "fact", updatedAt: 1 },
+      { text: "Отвечай коротко", kind: "behavior", updatedAt: 2 },
+    ]);
+
+    const bot = createMockBot();
+    registerMessageHandler(bot);
+
+    const ctx = createMockContext({ message: { text: "как меня зовут?" } });
+    await bot._messageHandlers[0].handler(ctx);
+
+    await vi.waitFor(() => {
+      expect(mockExecuteAgentTask).toHaveBeenCalled();
+    });
+
+    const prompt = mockExecuteAgentTask.mock.calls[0][0];
+    expect(prompt).toContain("<known_facts>");
+    expect(prompt).toContain("Пользователя зовут Алекс");
+    expect(prompt).toContain("[правило] Отвечай коротко");
   });
 
   // ── 3. Message preemption ─────────────────────────────────────

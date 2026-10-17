@@ -9,7 +9,7 @@
  */
 
 import { spawn } from "child_process";
-import { mkdirSync } from "fs";
+import { mkdirSync, existsSync, readFileSync, unlinkSync } from "fs";
 import { join } from "path";
 import type { RouteResult } from "./router.js";
 
@@ -104,6 +104,17 @@ export async function executeAgentTaskWithUsage(
       sessionsDir = join(process.env.WORKSPACE_DIR || process.cwd(), "sessions");
       mkdirSync(sessionsDir, { recursive: true });
       args.push("--session-id", `chat_${sessionId}`, "--session-dir", sessionsDir);
+
+      // Consume-once digest from the nightly distiller: seed the fresh session
+      // (created by this very spawn) with the summary of the archived one
+      const digestPath = join(sessionsDir, `chat_${sessionId}.digest.md`);
+      if (existsSync(digestPath)) {
+        const digest = readFileSync(digestPath, "utf-8").trim();
+        unlinkSync(digestPath);
+        if (digest) {
+          task = `<conversation_digest>\n${digest}\n</conversation_digest>\n\n` + task;
+        }
+      }
     }
 
     // Prompt and --print flag must come last
