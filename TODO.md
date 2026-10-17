@@ -40,9 +40,14 @@
 
 ### 6. Verify + commit
 
-- [ ] `npx tsc --noEmit`, `npm run lint`, `npm test`
-- [ ] Ручная проверка: синтетическая сессия с фактом («меня зовут X») → /distill → факты в таблице → следующее сообщение содержит `<known_facts>` с этим фактом
-- [ ] Коммит (conventional) + пуш
+- [x] `npx tsc --noEmit`, `npm run lint`, `npm test` - зелёные (70 passed / 3 skipped, 8 файлов)
+- [x] Ручная проверка на живом цикле: сессия с фактом → дистилляция → 3 факта в таблице (behavior помечен) → searchFacts находит семантически → сессия сжата с дайджестом → следующее сообщение стартует свежую сессию, дайджест consumed-once, модель отвечает по факту
+- [x] Коммит + пуш: `e07d9ee feat: weekly memory distillation + digest-based session compaction`
+
+## Discovered Tasks (нужно решение/аппрув)
+
+- [ ] **setModelOverride/clearModelOverride сломаны** (найдено при тестах): table.delete с camelCase-колонкой в lancedb 0.17 молча удаляет ноль строк - /model персистится криво (дубли строк, после рестарта override может потеряться). Предлагаю: перевести overrides на JSON-файл (паттерн distill-state), 3 метода по 3 строки. Ждёт аппрува
+- [ ] README: секция про дистилляцию и /distill (после аппрува этапа)
 
 ## Notes
 
