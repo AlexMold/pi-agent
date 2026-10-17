@@ -44,10 +44,10 @@
 - [x] Ручная проверка на живом цикле: сессия с фактом → дистилляция → 3 факта в таблице (behavior помечен) → searchFacts находит семантически → сессия сжата с дайджестом → следующее сообщение стартует свежую сессию, дайджест consumed-once, модель отвечает по факту
 - [x] Коммит + пуш: `e07d9ee feat: weekly memory distillation + digest-based session compaction`
 
-## Discovered Tasks (нужно решение/аппрув)
+## Discovered Tasks
 
-- [ ] **setModelOverride/clearModelOverride сломаны** (найдено при тестах): table.delete с camelCase-колонкой в lancedb 0.17 молча удаляет ноль строк - /model персистится криво (дубли строк, после рестарта override может потеряться). Предлагаю: перевести overrides на JSON-файл (паттерн distill-state), 3 метода по 3 строки. Ждёт аппрува
-- [ ] README: секция про дистилляцию и /distill (после аппрува этапа)
+- [x] **setModelOverride/clearModelOverride сломаны** - исправлено: overrides переехали на `workspace/model-overrides.json` (b58f1b5), модельная таблица удалена, round-trip тест добавлен
+- [x] README: секция про дистилляцию и `/distill` добавлена
 
 ## Notes
 
