@@ -12,6 +12,7 @@ import { join } from "path";
 import { mkdtempSync, rmSync } from "fs";
 
 process.env.MEMORY_DB = join(mkdtempSync(join(tmpdir(), "memory-facts-")), "ai_context");
+process.env.WORKSPACE_DIR = mkdtempSync(join(tmpdir(), "memory-facts-ws-"));
 process.env.OLLAMA_HOST = process.env.OLLAMA_HOST || "localhost:11434";
 
 import { memory } from "../memory.js";
@@ -42,5 +43,12 @@ describe("LongTermMemory facts (real lancedb)", () => {
     expect(texts).toHaveLength(2);
     expect(texts.some((t) => t.includes("Лиссабоне"))).toBe(true);
     expect(await memory.listRecentFacts(999, 10)).toHaveLength(1);
+  });
+
+  it("model overrides persist in the JSON file", () => {
+    memory.setModelOverride(CHAT, "deepseek/deepseek-v4-pro");
+    expect(memory.getModelOverride(CHAT)).toBe("deepseek/deepseek-v4-pro");
+    memory.clearModelOverride(CHAT);
+    expect(memory.getModelOverride(CHAT)).toBeNull();
   });
 });

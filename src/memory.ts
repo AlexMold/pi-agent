@@ -9,7 +9,8 @@
 
 import * as lancedb from "@lancedb/lancedb";
 import type { Connection, Table } from "@lancedb/lancedb";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { dirname, join } from "path";
 import { randomUUID } from "crypto";
 
 const OLLAMA_BASE = process.env.OLLAMA_HOST || "host.docker.internal:11434";
@@ -48,7 +49,6 @@ function getRecentInRange(chatId: number, rangeMs: number): TimedMessage[] {
 export class LongTermMemory {
   private db!: Connection;
   private table!: Table;
-  private modelTable!: Table;
   private usageTable!: Table;
   private factsTable!: Table;
   private initialized = false;
@@ -76,15 +76,6 @@ export class LongTermMemory {
       ]);
     } else {
       this.table = await this.db.openTable("history");
-    }
-
-    // Model overrides table (scalar key-value, no embeddings)
-    if (!tables.includes("model_overrides")) {
-      this.modelTable = await this.db.createTable("model_overrides", [
-        { chatId: 0, modelId: "__init__" },
-      ]);
-    } else {
-      this.modelTable = await this.db.openTable("model_overrides");
     }
 
     // Usage tracking table (per-message LLM cost records)
@@ -252,37 +243,39 @@ export class LongTermMemory {
 
   // ── Model overrides (persisted in LanceDB) ────────────────────
 
-  async setModelOverride(chatId: number, modelId: string): Promise<void> {
-    if (!this.initialized) await this.init();
-    try {
-      // Upsert: delete old, insert new
-      await this.modelTable.delete(`"chatId" = ${chatId}`);
-      await this.modelTable.add([{ chatId, modelId }]);
-    } catch (err) {
-      console.error("[Memory] setModelOverride failed:", err);
-    }
+  // ── Model overrides (JSON file — lancedb where/delete silently fails on camelCase) ──
+
+  private overridesPath(): string {
+    return join(process.env.WORKSPACE_DIR || process.cwd(), "model-overrides.json");
   }
 
-  async getModelOverride(chatId: number): Promise<string | null> {
-    if (!this.initialized) await this.init();
+  private readOverrides(): Record<string, string> {
     try {
-      const rows = await this.modelTable
-        .query()
-        .toArray();
-      const row = (rows as any[]).find((r) => r.chatId === chatId);
-      return row?.modelId || null;
+      return JSON.parse(readFileSync(this.overridesPath(), "utf-8"));
     } catch {
-      return null;
+      return {};
     }
   }
 
-  async clearModelOverride(chatId: number): Promise<void> {
-    if (!this.initialized) await this.init();
-    try {
-      await this.modelTable.delete(`"chatId" = ${chatId}`);
-    } catch (err) {
-      console.error("[Memory] clearModelOverride failed:", err);
-    }
+  private writeOverrides(map: Record<string, string>): void {
+    mkdirSync(dirname(this.overridesPath()), { recursive: true });
+    writeFileSync(this.overridesPath(), JSON.stringify(map, null, 2));
+  }
+
+  setModelOverride(chatId: number, modelId: string): void {
+    const map = this.readOverrides();
+    map[String(chatId)] = modelId;
+    this.writeOverrides(map);
+  }
+
+  getModelOverride(chatId: number): string | null {
+    return this.readOverrides()[String(chatId)] || null;
+  }
+
+  clearModelOverride(chatId: number): void {
+    const map = this.readOverrides();
+    delete map[String(chatId)];
+    this.writeOverrides(map);
   }
 
   // ── Distilled facts (long-term user knowledge) ────────────────

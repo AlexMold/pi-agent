@@ -41,6 +41,7 @@ is only picked when `DEFAULT_MODEL` points at it.
 | `src/memory.ts` | Hybrid memory: LanceDB (semantic) + ring buffer (time-based) |
 | `src/agent.ts` | LLM runner: Pi-Agent (cloud) + direct API (local) |
 | `src/services/reminder-store.js` | Shared reminder persistence (bot tool + cron worker read/write one file) |
+| `src/services/distiller.ts` | Weekly memory distillation: facts + behavior rules from sessions, digest-based session compaction |
 | `src/services/cron-worker.js` | Lightweight reminder checker (separate container) |
 | `src/services/message-handler.ts` | Voice/text/photo extraction |
 | `src/services/chat-queue.ts` | Per-chat preemptive message queue |
@@ -133,6 +134,8 @@ npm test           # 58 tests (55 pass, 3 skipped)
 ### Long-Term Memory
 
 - **Pi session per chat**: full conversation history + auto-compaction (~115K tokens), survives bot restarts
+- **Weekly distillation** (Sunday 04:00 or `/distill`): durable facts + behavior rules extracted into the facts table, sessions compacted with a digest
+- **Known facts**: semantic top-4 injected into every prompt (behavior rules marked)
 - **Ring buffer**: in-RAM recent store and fallback (not injected since the session carries recent turns)
 - **LanceDB**: semantic search across entire conversation history
 - **Reply context**: when user replies to a message, the original text is injected into context
