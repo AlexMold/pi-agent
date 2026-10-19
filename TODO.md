@@ -2,13 +2,13 @@
 
 ## Status
 
-- **Этап 1** (pi 1.3.0 + сессии на чат) - сделано: `b4f3f1d`, `cbb5b65`
-- **Этап 2** (дистилляция + автокомпакт, воскресенье 04:00 / `/distill`) - сделано: `e07d9ee`, `b58f1b5`
-- **Этап 3** (decision-model роутер на Jev/OpenJev) - **отклонён 2026-10-17**: оставляем qwen2.5:0.5b-классификатор. OpenJev 27B не влезает в целевое железо (Raspberry Pi 8 GB); hosted-вариант не выбран. План не актуален, вернуться можно по ссылке на исследовательскую заметку в сессии от 17-10
+- **Stage 1** (pi 1.3.0 + persistent per-chat sessions) - done: `b4f3f1d`, `cbb5b65`
+- **Stage 2** (memory distillation + session compaction, Sundays 04:00 / `/distill`) - done: `e07d9ee`, `b58f1b5`
+- **Stage 3** (decision-model router on Jev/OpenJev) - **declined 2026-10-17**: keeping the qwen2.5:0.5b classifier. OpenJev (27B) does not fit the target hardware (Raspberry Pi 8 GB); no hosted option selected. Plan not active; can be revisited later
 
-## Хвосты (вне этапов)
+## Remaining (outside the stages)
 
-- Деплой на инстанс: `npm ci` + пересборка; локальные правки на инстансе конфликтуют с `main` - развести руками
-- usage-tracker пишет мусорные токены + вернуть cost-поля в `.pi/agent/models.json`
-- `docker/whisper.service`: в репе `large-v3-turbo`, на инстансе `small-q5_1` - решить при деплое
-- `my-origin-develop.patch` в корне репы - удалить
+- Deploy to the instance: `npm ci` + rebuild; the instance has local uncommitted edits that conflict with `main` - resolve manually
+- usage-tracker records wrong token counts + bring back the `cost` fields in `.pi/agent/models.json`
+- `docker/whisper.service`: repo says `large-v3-turbo`, the instance runs `small-q5_1` - decide at deploy time
+- `my-origin-develop.patch` in the repo root - delete
